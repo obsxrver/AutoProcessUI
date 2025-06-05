@@ -1,0 +1,772 @@
+#!/usr/bin/env python
+"""Flask-based ComfyUI Batch Processor"""
+
+import os
+import json
+import time
+import uuid
+import shutil
+import zipfile
+import asyncio
+import threading
+from pathlib import Path
+from datetime import datetime
+from queue import Queue
+from typing import List, Dict, Any
+
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory, redirect, url_for, flash
+from flask_socketio import SocketIO, emit, join_room, leave_room
+from werkzeug.utils import secure_filename
+import pandas as pd
+
+# Import the ComfyUI processing logic
+from batchProcess import ComfyUIMultiGPU
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-secret-key-change-this'
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
+app.config['UPLOAD_FOLDER'] = 'temp_inputs'
+app.config['OUTPUT_FOLDER'] = 'gradio_outputs'
+
+# Initialize SocketIO for real-time updates
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+class FlaskComfyUIApp:
+    def __init__(self):
+        self.output_dir = Path(app.config['OUTPUT_FOLDER'])
+        self.output_dir.mkdir(exist_ok=True)
+        self.temp_input_dir = Path(app.config['UPLOAD_FOLDER'])
+        self.temp_input_dir.mkdir(exist_ok=True)
+        
+        # Load default prompts from workflow.json
+        with open("workflow.json", 'r') as f:
+            workflow = json.load(f)
+        
+        self.default_positive = workflow["10"]["inputs"]["text"]
+        self.default_negative = workflow["15"]["inputs"]["text"]
+        
+        # Store processing results
+        self.results_cache = {}
+        self.processing_status = {}
+        
+        # Initialize orchestrator (will be created when processing starts)
+        self.orchestrator = None
+        self.comfyui_processes = []
+        
+        # Store preview images and websocket connections
+        self.preview_images = {}
+        self.ws_connections = {}
+        self.upload_queue = {}  # Store uploaded images with IDs for deletion
+        
+        # Final status attributes
+        self.final_status = None
+        self.final_archive = None
+        
+        # Pre-warm ComfyUI servers on startup
+        print("Pre-warming ComfyUI servers...")
+        try:
+            self.initialize_orchestrator()
+            print("ComfyUI servers ready!")
+        except Exception as e:
+            print(f"Warning: Failed to pre-warm ComfyUI servers: {e}")
+            print("Servers will be started on first use.")
+    
+    def detect_cuda_devices(self):
+        """Detect available CUDA devices"""
+        try:
+            import torch
+            cuda_count = torch.cuda.device_count()
+            print(f"Detected {cuda_count} CUDA devices")
+            return cuda_count if cuda_count > 0 else 1
+        except ImportError:
+            print("PyTorch not found, assuming 1 GPU")
+            return 1
+        except Exception as e:
+            print(f"Error detecting CUDA devices: {e}, assuming 1 GPU")
+            return 1
+    
+    def initialize_orchestrator(self):
+        """Initialize the ComfyUI orchestrator with detected GPUs"""
+        if self.orchestrator is None:
+            num_gpus = self.detect_cuda_devices()
+            
+            # Determine ComfyUI path - check common locations
+            comfyui_path = os.environ.get("COMFYUI_PATH")
+            if not comfyui_path:
+                # Check common paths
+                possible_paths = [
+                    "/workspace/ComfyUI",
+                    "C:/ComfyUI",
+                    "C:/Users/ComfyUI",
+                    os.path.expanduser("~/ComfyUI"),
+                    "../ComfyUI",
+                    "./ComfyUI"
+                ]
+                for path in possible_paths:
+                    if os.path.exists(path) and os.path.isdir(path):
+                        comfyui_path = path
+                        break
+                else:
+                    raise ValueError("ComfyUI path not found. Please set COMFYUI_PATH environment variable.")
+            
+            self.orchestrator = ComfyUIMultiGPU(
+                workflow_path="workflow.json",
+                num_gpus=num_gpus,
+                comfyui_path=comfyui_path,
+                base_port=8200
+            )
+            # Start ComfyUI instances
+            self.comfyui_processes = self.orchestrator.start_comfyui_instances()
+            time.sleep(10)  # Wait for servers to initialize
+    
+    def add_to_upload_queue(self, files):
+        """Handle file uploads - single or multiple"""
+        if not files:
+            return {"status": "error", "message": "No files to upload."}
+
+        # Ensure temp_input_dir exists
+        self.temp_input_dir.mkdir(exist_ok=True)
+        
+        successful_uploads = 0
+        failed_uploads = []
+        
+        # Process each file
+        for file in files:
+            try:
+                if file and file.filename:
+                    original_name = secure_filename(file.filename)
+                    
+                    # Remove existing file with same original name
+                    for existing_id, info in list(self.upload_queue.items()):
+                        if info['original_name'] == original_name:
+                            old_path = info['path']
+                            if os.path.exists(old_path):
+                                try:
+                                    os.remove(old_path)
+                                except:
+                                    pass
+                            del self.upload_queue[existing_id]
+                    
+                    # Create unique ID and save file
+                    upload_id = str(uuid.uuid4())
+                    dest_filename = f"{upload_id}_{original_name}"
+                    dest_path = self.temp_input_dir / dest_filename
+                    
+                    file.save(str(dest_path))
+                    
+                    # Verify save
+                    if dest_path.exists() and dest_path.stat().st_size > 0:
+                        self.upload_queue[upload_id] = {
+                            'path': str(dest_path),
+                            'original_name': original_name,
+                            'upload_time': time.time()
+                        }
+                        successful_uploads += 1
+                        print(f"✓ Uploaded {original_name}")
+                    else:
+                        failed_uploads.append(original_name)
+                        
+            except Exception as e:
+                print(f"Error processing file: {e}")
+                failed_uploads.append(file.filename if file else "Unknown")
+        
+        # Status message
+        if successful_uploads == len(files):
+            status_msg = f"✓ Successfully uploaded {successful_uploads} image(s)"
+        elif successful_uploads > 0:
+            status_msg = f"⚠️ Uploaded {successful_uploads}/{len(files)} images. Failed: {', '.join(failed_uploads)}"
+        else:
+            status_msg = f"❌ Failed to upload any images"
+        
+        return {
+            "status": "success" if successful_uploads > 0 else "error",
+            "message": status_msg,
+            "uploaded_count": successful_uploads,
+            "queue_count": len(self.upload_queue)
+        }
+    
+    def get_upload_queue_images(self):
+        """Get list of image info for display"""
+        return [
+            {
+                'id': upload_id,
+                'path': info['path'],
+                'original_name': info['original_name'],
+                'upload_time': info['upload_time']
+            }
+            for upload_id, info in self.upload_queue.items()
+        ]
+    
+    def clear_upload_queue(self):
+        """Clear all images from the upload queue"""
+        for upload_id, info in list(self.upload_queue.items()):
+            temp_path = info['path']
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+        
+        self.upload_queue.clear()
+        return {"status": "success", "message": "Upload queue cleared"}
+    
+    def get_all_results(self):
+        """Get all processed images for gallery display"""
+        all_images = []
+        for result in self.results_cache.values():
+            for output_path in result.get('output_paths', []):
+                all_images.append({
+                    'path': output_path,
+                    'name': Path(output_path).name,
+                    'image_id': result['image_id']
+                })
+        return all_images
+    
+    def clear_all_results(self):
+        """Clear all results and delete files"""
+        # First delete all output files
+        if self.output_dir.exists():
+            for file_path in self.output_dir.glob("*.png"):
+                try:
+                    file_path.unlink()
+                except Exception as e:
+                    print(f"Error deleting {file_path}: {e}")
+        
+        # Clear caches
+        self.results_cache.clear()
+        self.processing_status.clear()
+        self.preview_images.clear()
+        
+        return {"status": "success", "message": "All results cleared"}
+    
+    def get_status_data(self):
+        """Get processing status data"""
+        if not self.processing_status:
+            return []
+        
+        data = []
+        for image_id, status in self.processing_status.items():
+            status_str = status.get('status', 'Unknown')
+            # Add error info if available
+            if status_str == 'failed' and 'error' in status:
+                status_str = f"failed: {status['error']}"
+            
+            data.append({
+                'filename': status.get('filename', 'Unknown'),
+                'status': status_str,
+                'gpu': status.get('gpu', -1),
+                'progress': status.get('progress', 0)
+            })
+        
+        return data
+    
+    async def process_batch_with_live_updates(self, image_info_list: List[Dict], 
+                                            positive_prompt: str, 
+                                            negative_prompt: str):
+        """Process batch of images with live updates via SocketIO"""
+        # Ensure orchestrator is initialized
+        if self.orchestrator is None:
+            try:
+                self.initialize_orchestrator()
+            except Exception as e:
+                print(f"Fatal: Failed to initialize orchestrator: {e}")
+                for image_data in image_info_list:
+                    image_id = image_data['image_id']
+                    self.processing_status[image_id] = {
+                        'filename': image_data['original_name'],
+                        'status': 'failed',
+                        'gpu': -1,
+                        'progress': 0,
+                        'input_path': image_data['path'],
+                        'error': 'Orchestrator initialization failed'
+                    }
+                return []
+        
+        # Import the async processing method from the original class
+        import aiohttp
+        
+        all_results = []
+        
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            
+            for i, image_data in enumerate(image_info_list):
+                gpu_id = i % self.orchestrator.num_gpus
+                image_id = image_data['image_id']
+                file_path = image_data['path']
+                original_name = image_data['original_name']
+                
+                self.processing_status[image_id] = {
+                    'filename': original_name,
+                    'status': 'queued',
+                    'gpu': gpu_id,
+                    'progress': 0,
+                    'input_path': file_path
+                }
+                
+                # Emit status update via SocketIO
+                socketio.emit('status_update', {
+                    'image_id': image_id,
+                    'status': 'queued',
+                    'progress': 0,
+                    'filename': original_name
+                })
+                
+                task = self.process_single_image_with_socketio_updates(
+                    session, gpu_id, file_path, original_name, 
+                    positive_prompt, negative_prompt, image_id
+                )
+                tasks.append(task)
+            
+            # Process with live updates
+            completed_count = 0
+            for task_future in asyncio.as_completed(tasks):
+                try:
+                    result_item = await task_future
+                    if result_item:
+                        all_results.append(result_item)
+                        self.results_cache[result_item['image_id']] = result_item
+                        
+                        # Emit completion update
+                        socketio.emit('processing_complete', {
+                            'image_id': result_item['image_id'],
+                            'output_paths': result_item['output_paths']
+                        })
+                    
+                    completed_count += 1
+                    socketio.emit('batch_progress', {
+                        'completed': completed_count,
+                        'total': len(tasks)
+                    })
+                    
+                except Exception as e:
+                    print(f"Error processing an image task: {e}")
+                    completed_count += 1
+                    socketio.emit('batch_progress', {
+                        'completed': completed_count,
+                        'total': len(tasks)
+                    })
+        
+        return all_results
+    
+    async def process_single_image_with_socketio_updates(self, session, gpu_id, image_path, 
+                                               original_name, positive_prompt, negative_prompt, 
+                                               image_id):
+        """Process a single image and provide SocketIO status updates"""
+        server_url = f"http://localhost:{self.orchestrator.base_ports[gpu_id]}"
+        
+        try:
+            # Update status
+            self.processing_status[image_id].update({
+                'status': 'uploading',
+                'progress': 0
+            })
+            
+            socketio.emit('status_update', {
+                'image_id': image_id,
+                'status': 'uploading',
+                'progress': 0
+            })
+            
+            # Upload image to server using the API
+            upload_result = await self.orchestrator.upload_image_async(
+                session, server_url, image_path, original_name
+            )
+            
+            if not upload_result or 'name' not in upload_result:
+                self.processing_status[image_id]['status'] = 'failed'
+                self.processing_status[image_id]['error'] = f"Upload failed via API"
+                
+                socketio.emit('status_update', {
+                    'image_id': image_id,
+                    'status': 'failed',
+                    'error': 'Upload failed'
+                })
+                return None
+            
+            # Modify workflow with custom prompts
+            workflow_copy = self.orchestrator.modify_workflow_for_image(upload_result['name'])
+            
+            # Update prompts in the workflow
+            if "10" in workflow_copy:
+                workflow_copy["10"]["inputs"]["text"] = positive_prompt
+            if "15" in workflow_copy:
+                workflow_copy["15"]["inputs"]["text"] = negative_prompt
+            
+            # Queue prompt
+            self.processing_status[image_id]['status'] = 'processing'
+            self.processing_status[image_id]['progress'] = 10
+            
+            socketio.emit('status_update', {
+                'image_id': image_id,
+                'status': 'processing',
+                'progress': 10
+            })
+            
+            # Generate client ID for tracking
+            client_id = str(uuid.uuid4())
+            
+            payload = {
+                "prompt": workflow_copy,
+                "client_id": client_id
+            }
+            
+            async with session.post(f"{server_url}/prompt", json=payload) as resp:
+                result = await resp.json()
+            
+            if not result or 'prompt_id' not in result:
+                self.processing_status[image_id]['status'] = 'failed'
+                socketio.emit('status_update', {
+                    'image_id': image_id,
+                    'status': 'failed',
+                    'error': 'Failed to queue prompt'
+                })
+                return None
+            
+            prompt_id = result['prompt_id']
+            
+            # Poll for completion with progress updates
+            start_time = time.time()
+            timeout = 600
+            
+            while time.time() - start_time < timeout:
+                history = await self.orchestrator.get_history_async(
+                    session, server_url, prompt_id
+                )
+                
+                if history and prompt_id in history:
+                    prompt_history = history[prompt_id]
+                    
+                    if prompt_history.get('status', {}).get('completed', False):
+                        self.processing_status[image_id]['progress'] = 100
+                        
+                        socketio.emit('status_update', {
+                            'image_id': image_id,
+                            'status': 'downloading',
+                            'progress': 100
+                        })
+                        
+                        # Get output images
+                        outputs = prompt_history.get('outputs', {})
+                        output_files = []
+                        
+                        # Download and save outputs with proper naming
+                        base_name = Path(image_path).stem
+                        
+                        def get_unique_filename(base_path):
+                            """Get a unique filename by appending numbers if needed"""
+                            if not base_path.exists():
+                                return base_path
+                            
+                            counter = 1
+                            while True:
+                                new_path = base_path.parent / f"{base_path.stem}_{counter}{base_path.suffix}"
+                                if not new_path.exists():
+                                    return new_path
+                                counter += 1
+                        
+                        # First output (node 20)
+                        if "20" in outputs and 'images' in outputs["20"]:
+                            for img_info in outputs["20"]['images']:
+                                filename = img_info['filename']
+                                subfolder = img_info.get('subfolder', '')
+                                
+                                # Download image
+                                if subfolder:
+                                    url = f"{server_url}/view?filename={filename}&subfolder={subfolder}&type=output"
+                                else:
+                                    url = f"{server_url}/view?filename={filename}&type=output"
+                                
+                                async with session.get(url) as resp:
+                                    if resp.status == 200:
+                                        content = await resp.read()
+                                        
+                                        output_path = get_unique_filename(self.output_dir / f"{base_name}_.png")
+                                        with open(output_path, 'wb') as f:
+                                            f.write(content)
+                                        output_files.append(str(output_path))
+                        
+                        # Second output (node 52 - refined)
+                        if "52" in outputs and 'images' in outputs["52"]:
+                            for img_info in outputs["52"]['images']:
+                                filename = img_info['filename']
+                                subfolder = img_info.get('subfolder', '')
+                                
+                                # Download image
+                                if subfolder:
+                                    url = f"{server_url}/view?filename={filename}&subfolder={subfolder}&type=output"
+                                else:
+                                    url = f"{server_url}/view?filename={filename}&type=output"
+                                
+                                async with session.get(url) as resp:
+                                    if resp.status == 200:
+                                        content = await resp.read()
+                                        
+                                        output_path = get_unique_filename(self.output_dir / f"{base_name}_refined.png")
+                                        with open(output_path, 'wb') as f:
+                                            f.write(content)
+                                        output_files.append(str(output_path))
+                        
+                        self.processing_status[image_id]['status'] = 'completed'
+                        
+                        socketio.emit('status_update', {
+                            'image_id': image_id,
+                            'status': 'completed',
+                            'progress': 100
+                        })
+                        
+                        return {
+                            'image_id': image_id,
+                            'input_path': image_path,
+                            'output_paths': output_files,
+                            'status': 'completed'
+                        }
+                    
+                    elif prompt_history.get('status', {}).get('status_str') == 'error':
+                        self.processing_status[image_id]['status'] = 'error'
+                        socketio.emit('status_update', {
+                            'image_id': image_id,
+                            'status': 'error'
+                        })
+                        return None
+                    else:
+                        # Update progress during processing
+                        execution = prompt_history.get('execution', {})
+                        if execution:
+                            current = execution.get('current', 0)
+                            total = execution.get('total', 1)
+                            progress = 25 + int((current / total) * 70)
+                            self.processing_status[image_id]['progress'] = progress
+                            
+                            socketio.emit('status_update', {
+                                'image_id': image_id,
+                                'status': 'processing',
+                                'progress': progress
+                            })
+                
+                await asyncio.sleep(1)
+            
+            self.processing_status[image_id]['status'] = 'timeout'
+            socketio.emit('status_update', {
+                'image_id': image_id,
+                'status': 'timeout'
+            })
+            return None
+            
+        except Exception as e:
+            self.processing_status[image_id]['status'] = 'error'
+            self.processing_status[image_id]['error'] = str(e)
+            
+            socketio.emit('status_update', {
+                'image_id': image_id,
+                'status': 'error',
+                'error': str(e)
+            })
+            return None
+    
+    def create_archive(self, results: List[Dict]) -> str:
+        """Create a zip archive of all processed images"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        archive_path = self.output_dir / f"batch_results_{timestamp}.zip"
+        
+        with zipfile.ZipFile(archive_path, 'w') as zipf:
+            for result in results:
+                for output_path in result.get('output_paths', []):
+                    if os.path.exists(output_path):
+                        arcname = Path(output_path).name
+                        zipf.write(output_path, arcname)
+        
+        return str(archive_path)
+
+# Initialize the app
+batch_app = FlaskComfyUIApp()
+
+# Flask Routes
+@app.route('/')
+def index():
+    """Main page"""
+    upload_queue = batch_app.get_upload_queue_images()
+    results = batch_app.get_all_results()
+    status_data = batch_app.get_status_data()
+    
+    return render_template('index.html',
+                         upload_queue=upload_queue,
+                         results=results,
+                         status_data=status_data,
+                         default_positive=batch_app.default_positive,
+                         default_negative=batch_app.default_negative,
+                         cuda_devices=batch_app.detect_cuda_devices())
+
+@app.route('/upload', methods=['POST'])
+def upload_files():
+    """Handle file uploads"""
+    if 'files' not in request.files:
+        return jsonify({"status": "error", "message": "No files provided"})
+    
+    files = request.files.getlist('files')
+    result = batch_app.add_to_upload_queue(files)
+    
+    return jsonify(result)
+
+@app.route('/clear_queue', methods=['POST'])
+def clear_queue():
+    """Clear upload queue"""
+    result = batch_app.clear_upload_queue()
+    return jsonify(result)
+
+@app.route('/clear_results', methods=['POST'])
+def clear_results():
+    """Clear all results"""
+    result = batch_app.clear_all_results()
+    return jsonify(result)
+
+@app.route('/process', methods=['POST'])
+def process_images():
+    """Start processing images"""
+    data = request.get_json()
+    positive_prompt = data.get('positive_prompt', batch_app.default_positive)
+    negative_prompt = data.get('negative_prompt', batch_app.default_negative)
+    
+    if not batch_app.upload_queue:
+        return jsonify({"status": "error", "message": "No images in upload queue"})
+    
+    # Prepare image info list
+    image_info_list = []
+    processing_items = list(batch_app.upload_queue.items())
+    
+    for upload_id, info in processing_items:
+        file_path = info['path']
+        original_name = info['original_name']
+        
+        if os.path.exists(file_path):
+            image_id = str(uuid.uuid4())
+            image_info_list.append({
+                'path': file_path,
+                'original_name': original_name,
+                'image_id': image_id
+            })
+            
+            # Remove from upload queue as we are now processing it
+            if upload_id in batch_app.upload_queue:
+                del batch_app.upload_queue[upload_id]
+    
+    if not image_info_list:
+        return jsonify({"status": "error", "message": "No valid files to process"})
+    
+    # Start processing in background thread
+    def run_async_processing():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            results = loop.run_until_complete(
+                batch_app.process_batch_with_live_updates(
+                    image_info_list, positive_prompt, negative_prompt
+                )
+            )
+            
+            # Emit final completion
+            socketio.emit('batch_complete', {
+                'total_processed': len(image_info_list),
+                'completed': len([r for r in results if r]),
+                'failed': len([r for r in results if not r])
+            })
+            
+            # Clean up temp files
+            for _, info in processing_items:
+                temp_path = info['path']
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
+                        
+        except Exception as e:
+            print(f"Error during processing: {e}")
+            socketio.emit('processing_error', {'error': str(e)})
+        finally:
+            loop.close()
+    
+    processing_thread = threading.Thread(target=run_async_processing)
+    processing_thread.daemon = True
+    processing_thread.start()
+    
+    return jsonify({"status": "success", "message": f"Started processing {len(image_info_list)} images"})
+
+@app.route('/status')
+def get_status():
+    """Get current processing status"""
+    status_data = batch_app.get_status_data()
+    upload_queue = batch_app.get_upload_queue_images()
+    results = batch_app.get_all_results()
+    
+    return jsonify({
+        "status_data": status_data,
+        "upload_queue": upload_queue,
+        "results": results,
+        "queue_count": len(batch_app.upload_queue)
+    })
+
+@app.route('/download_archive')
+def download_archive():
+    """Create and download archive of all results"""
+    if not batch_app.results_cache:
+        return jsonify({"status": "error", "message": "No results to archive"})
+    
+    archive_path = batch_app.create_archive(list(batch_app.results_cache.values()))
+    
+    return send_file(archive_path, as_attachment=True, download_name=Path(archive_path).name)
+
+@app.route('/outputs/<path:filename>')
+def serve_output_image(filename):
+    """Serve output images"""
+    return send_from_directory(app.config['OUTPUT_FOLDER'], filename)
+
+@app.route('/uploads/<path:filename>')
+def serve_upload_image(filename):
+    """Serve uploaded images"""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/delete_image/<image_id>')
+def delete_image(image_id):
+    """Delete a specific processed image"""
+    if image_id in batch_app.results_cache:
+        result = batch_app.results_cache[image_id]
+        # Delete output files
+        for output_path in result.get('output_paths', []):
+            if os.path.exists(output_path):
+                os.remove(output_path)
+        del batch_app.results_cache[image_id]
+        
+        if image_id in batch_app.processing_status:
+            del batch_app.processing_status[image_id]
+        
+        return jsonify({"status": "success", "message": f"Deleted image {image_id}"})
+    
+    return jsonify({"status": "error", "message": "Image not found"})
+
+# SocketIO Events
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+    emit('connected', {'data': 'Connected to server'})
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
+
+@socketio.on('join_monitoring')
+def handle_join_monitoring():
+    """Client wants to receive live updates"""
+    join_room('monitoring')
+    emit('joined', {'room': 'monitoring'})
+
+if __name__ == '__main__':
+    # Create required directories
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
+    os.makedirs('templates', exist_ok=True)
+    os.makedirs('static', exist_ok=True)
+    
+    # Run the app
+    port = int(os.environ.get("FLASK_PORT", "5000"))
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)

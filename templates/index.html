@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyUI Multi-GPU Batch Processor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="text-center"><i class="fas fa-cogs"></i> ComfyUI Multi-GPU Batch Processor</h1>
+                <p class="text-center text-muted">Detected CUDA devices: {{ cuda_devices }}</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Panel - Controls -->
+            <div class="col-md-4">
+                <!-- Upload Section -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-upload"></i> Upload Images</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="fileInput" class="form-label">Select Images</label>
+                            <input type="file" class="form-control" id="fileInput" multiple accept="image/*">
+                            <div class="form-text">Drag and drop files or click to select multiple images</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary" id="uploadBtn">
+                                <i class="fas fa-plus"></i> Add to Queue
+                            </button>
+                            <button class="btn btn-secondary" id="clearQueueBtn">
+                                <i class="fas fa-trash"></i> Clear Queue
+                            </button>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <div id="uploadStatus" class="alert alert-info">Ready to upload images</div>
+                            <div id="queueCounter" class="badge bg-secondary">{{ upload_queue|length }} images in queue</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Queue Gallery -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6><i class="fas fa-images"></i> Upload Queue</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="uploadGallery" class="image-gallery">
+                            {% for item in upload_queue %}
+                            <div class="image-item" data-id="{{ item.id }}">
+                                <img src="{{ url_for('serve_upload_image', filename=item.path.split('/')[-1]) }}" alt="{{ item.original_name }}">
+                                <div class="image-overlay">
+                                    <span class="image-name">{{ item.original_name }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prompts Section -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-edit"></i> Prompts</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="positivePrompt" class="form-label">Positive Prompt</label>
+                            <textarea class="form-control" id="positivePrompt" rows="3">{{ default_positive }}</textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="negativePrompt" class="form-label">Negative Prompt</label>
+                            <textarea class="form-control" id="negativePrompt" rows="3">{{ default_negative }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processing Controls -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-play"></i> Processing</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success btn-lg" id="processBtn">
+                                <i class="fas fa-play"></i> Process Images
+                            </button>
+                            <button class="btn btn-warning" id="rerunBtn">
+                                <i class="fas fa-redo"></i> Rerun Failed
+                            </button>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-danger" id="clearAllBtn">
+                                <i class="fas fa-trash-alt"></i> Clear All Results
+                            </button>
+                            <button class="btn btn-info" id="refreshBtn">
+                                <i class="fas fa-sync"></i> Refresh Status
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Section -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-info-circle"></i> Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusText" class="alert alert-secondary">Ready</div>
+                        
+                        <!-- Progress Bar -->
+                        <div id="progressContainer" class="mb-3" style="display: none;">
+                            <div class="progress">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <small id="progressText" class="text-muted">0/0 images processed</small>
+                        </div>
+                        
+                        <!-- Status Table -->
+                        <div class="table-responsive">
+                            <table class="table table-sm" id="statusTable">
+                                <thead>
+                                    <tr>
+                                        <th>Filename</th>
+                                        <th>Status</th>
+                                        <th>GPU</th>
+                                        <th>Progress</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="statusTableBody">
+                                    {% for status in status_data %}
+                                    <tr>
+                                        <td>{{ status.filename }}</td>
+                                        <td><span class="badge bg-secondary">{{ status.status }}</span></td>
+                                        <td>{{ status.gpu }}</td>
+                                        <td>{{ status.progress }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Results -->
+            <div class="col-md-8">
+                <!-- Live Preview Section -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-eye"></i> Live Generation Preview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="livePreview" class="image-gallery">
+                            <!-- Live preview images will be added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-check-circle"></i> Completed Images</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary" id="downloadArchiveBtn">
+                                <i class="fas fa-download"></i> Download Archive
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="resultsGallery" class="image-gallery">
+                            {% for result in results %}
+                            <div class="image-item" data-id="{{ result.image_id }}">
+                                <img src="{{ url_for('serve_output_image', filename=result.name) }}" alt="{{ result.name }}">
+                                <div class="image-overlay">
+                                    <span class="image-name">{{ result.name }}</span>
+                                    <button class="btn btn-sm btn-danger delete-btn" data-id="{{ result.image_id }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                <!-- Toast message will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
