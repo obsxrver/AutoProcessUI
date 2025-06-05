@@ -1,0 +1,10 @@
+gradio==3.41.2  # Supports auto-refresh with 'every' parameter
+aiohttp>=3.8.0
+requests
+pandas
+websocket-client>=1.6.0  # For ComfyUI websocket connections
+# torch>=2.0.0  # Usually pre-installed in vast.ai instances
+Pillow>=10.0.0  # For image handling
+numpy>=1.24.0  # For image array handling 
+httpx==0.23.3
+httpcore==0.15.0 

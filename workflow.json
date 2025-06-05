@@ -1,0 +1,587 @@
+{
+  "1": {
+    "inputs": {
+      "image": "input_image.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "8": {
+    "inputs": {
+      "mask": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "MaskPreview+",
+    "_meta": {
+      "title": "🔧 Mask Preview"
+    }
+  },
+  "9": {
+    "inputs": {
+      "ckpt_name": "juggernaut-ragnarok.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "10": {
+    "inputs": {
+      "text": "the input prompt",
+      "clip": [
+        "9",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "11": {
+    "inputs": {
+      "grow_mask_by": 64,
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "9",
+        2
+      ],
+      "mask": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "VAE Encode (for Inpainting)"
+    }
+  },
+  "12": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 493330409979200,
+      "steps": 80,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m_sde_gpu",
+      "scheduler": "karras",
+      "start_at_step": 0,
+      "end_at_step": 10000,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "43",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "15",
+        0
+      ],
+      "latent_image": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "13": {
+    "inputs": {
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "9",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "14": {
+    "inputs": {
+      "images": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "15": {
+    "inputs": {
+      "text": "[the negative prompt]blurry, low quality, worst quality, wrong anatomy",
+      "clip": [
+        "9",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "16": {
+    "inputs": {
+      "model_name": "sam2_1_hiera_large.pt"
+    },
+    "class_type": "SAM2ModelLoader (segment anything2)",
+    "_meta": {
+      "title": "SAM2ModelLoader (segment anything2)"
+    }
+  },
+  "17": {
+    "inputs": {
+      "prompt": "garment",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "18": {
+    "inputs": {
+      "model_name": "GroundingDINO_SwinT_OGC (694MB)"
+    },
+    "class_type": "GroundingDinoModelLoader (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoModelLoader (segment anything2)"
+    }
+  },
+  "19": {
+    "inputs": {
+      "amount": 14,
+      "device": "auto",
+      "mask": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "MaskBlur+",
+    "_meta": {
+      "title": "🔧 Mask Blur"
+    }
+  },
+  "20": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "28": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "String (Multiline)"
+    }
+  },
+  "29": {
+    "inputs": {
+      "prompt": "pants",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "30": {
+    "inputs": {
+      "prompt": "vest",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "31": {
+    "inputs": {
+      "prompt": "shirt",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "32": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "17",
+        1
+      ],
+      "source": [
+        "29",
+        1
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "33": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "30",
+        1
+      ],
+      "source": [
+        "31",
+        1
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "34": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "32",
+        0
+      ],
+      "source": [
+        "33",
+        0
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "35": {
+    "inputs": {
+      "prompt": "head, face, hair",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "36": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "35",
+        1
+      ],
+      "source": [
+        "35",
+        1
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "37": {
+    "inputs": {
+      "prompt": "skin",
+      "threshold": 0.20000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "39": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "subtract",
+      "destination": [
+        "34",
+        0
+      ],
+      "source": [
+        "36",
+        0
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "40": {
+    "inputs": {
+      "mask": [
+        "34",
+        0
+      ]
+    },
+    "class_type": "MaskPreview+",
+    "_meta": {
+      "title": "🔧 Mask Preview"
+    }
+  },
+  "41": {
+    "inputs": {
+      "mask": [
+        "36",
+        0
+      ]
+    },
+    "class_type": "MaskPreview+",
+    "_meta": {
+      "title": "🔧 Mask Preview"
+    }
+  },
+  "42": {
+    "inputs": {
+      "head": "fooocus_inpaint_head.pth",
+      "patch": "inpaint_v26.fooocus.patch"
+    },
+    "class_type": "INPAINT_LoadFooocusInpaint",
+    "_meta": {
+      "title": "Load Fooocus Inpaint"
+    }
+  },
+  "43": {
+    "inputs": {
+      "model": [
+        "9",
+        0
+      ],
+      "patch": [
+        "42",
+        0
+      ],
+      "latent": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "INPAINT_ApplyFooocusInpaint",
+    "_meta": {
+      "title": "Apply Fooocus Inpaint"
+    }
+  },
+  "46": {
+    "inputs": {
+      "guide_size": 512,
+      "guide_size_for": true,
+      "max_size": 3686.400390625,
+      "seed": 555638402111167,
+      "steps": 40,
+      "cfg": 4,
+      "sampler_name": "dpmpp_2m_sde_gpu",
+      "scheduler": "normal",
+      "denoise": 0.30000000000000004,
+      "feather": 5,
+      "noise_mask": true,
+      "force_inpaint": true,
+      "wildcard": "",
+      "cycle": 2,
+      "inpaint_model": true,
+      "noise_mask_feather": 10,
+      "tiled_encode": false,
+      "tiled_decode": false,
+      "image": [
+        "13",
+        0
+      ],
+      "segs": [
+        "51",
+        0
+      ],
+      "model": [
+        "9",
+        0
+      ],
+      "clip": [
+        "9",
+        1
+      ],
+      "vae": [
+        "9",
+        2
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "15",
+        0
+      ],
+      "detailer_hook": [
+        "49",
+        0
+      ],
+      "scheduler_func_opt": [
+        "50",
+        0
+      ]
+    },
+    "class_type": "DetailerForEach",
+    "_meta": {
+      "title": "Detailer (SEGS)"
+    }
+  },
+  "49": {
+    "inputs": {
+      "schedule_for_cycle": "simple",
+      "target_denoise": 0.30000000000000004
+    },
+    "class_type": "DenoiseSchedulerDetailerHookProvider",
+    "_meta": {
+      "title": "DenoiseSchedulerDetailerHookProvider"
+    }
+  },
+  "50": {
+    "inputs": {
+      "coeff": 1.2000000000000002,
+      "denoise": 1
+    },
+    "class_type": "GITSSchedulerFuncProvider",
+    "_meta": {
+      "title": "GITSScheduler Func Provider"
+    }
+  },
+  "51": {
+    "inputs": {
+      "combined": false,
+      "crop_factor": 1.8,
+      "bbox_fill": true,
+      "drop_size": 50,
+      "contour_fill": true,
+      "mask": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "MaskToSEGS",
+    "_meta": {
+      "title": "MASK to SEGS"
+    }
+  },
+  "52": {
+    "inputs": {
+      "filename_prefix": "refined-ComfyUI",
+      "images": [
+        "46",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}
