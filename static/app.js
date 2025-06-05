@@ -1,0 +1,506 @@
+// ComfyUI Batch Processor JavaScript
+
+class ComfyUIApp {
+    constructor() {
+        this.socket = null;
+        this.processingCount = 0;
+        this.totalCount = 0;
+        this.init();
+    }
+
+    init() {
+        this.setupSocketIO();
+        this.setupEventListeners();
+        this.setupDragAndDrop();
+        this.startStatusPolling();
+    }
+
+    setupSocketIO() {
+        this.socket = io();
+        
+        this.socket.on('connect', () => {
+            console.log('Connected to server');
+            this.socket.emit('join_monitoring');
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        });
+
+        this.socket.on('status_update', (data) => {
+            this.updateImageStatus(data);
+        });
+
+        this.socket.on('processing_complete', (data) => {
+            this.handleProcessingComplete(data);
+        });
+
+        this.socket.on('batch_progress', (data) => {
+            this.updateBatchProgress(data);
+        });
+
+        this.socket.on('batch_complete', (data) => {
+            this.handleBatchComplete(data);
+        });
+
+        this.socket.on('processing_error', (data) => {
+            this.showNotification('Processing Error', data.error, 'danger');
+        });
+    }
+
+    setupEventListeners() {
+        // File input change
+        document.getElementById('fileInput').addEventListener('change', () => {
+            this.handleFileUpload();
+        });
+
+        // Upload button
+        document.getElementById('uploadBtn').addEventListener('click', () => {
+            this.handleFileUpload();
+        });
+
+        // Clear queue button
+        document.getElementById('clearQueueBtn').addEventListener('click', () => {
+            this.clearUploadQueue();
+        });
+
+        // Process button
+        document.getElementById('processBtn').addEventListener('click', () => {
+            this.startProcessing();
+        });
+
+        // Clear all results button
+        document.getElementById('clearAllBtn').addEventListener('click', () => {
+            this.clearAllResults();
+        });
+
+        // Refresh button
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            this.refreshStatus();
+        });
+
+        // Download archive button
+        document.getElementById('downloadArchiveBtn').addEventListener('click', () => {
+            this.downloadArchive();
+        });
+
+        // Delete buttons (delegated event handling)
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.delete-btn')) {
+                const imageId = e.target.closest('.delete-btn').dataset.id;
+                this.deleteImage(imageId);
+            }
+        });
+    }
+
+    setupDragAndDrop() {
+        const fileInput = document.getElementById('fileInput');
+        const uploadCard = fileInput.closest('.card');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadCard.addEventListener(eventName, this.preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadCard.addEventListener(eventName, () => {
+                uploadCard.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadCard.addEventListener(eventName, () => {
+                uploadCard.classList.remove('drag-over');
+            });
+        });
+
+        uploadCard.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            this.uploadFiles(files);
+        });
+    }
+
+    preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    async handleFileUpload() {
+        const fileInput = document.getElementById('fileInput');
+        const files = fileInput.files;
+        
+        if (files.length === 0) {
+            this.showNotification('No Files', 'Please select files to upload', 'warning');
+            return;
+        }
+
+        await this.uploadFiles(files);
+        fileInput.value = ''; // Clear the input
+    }
+
+    async uploadFiles(files) {
+        const formData = new FormData();
+        
+        // Add files to form data
+        for (let file of files) {
+            formData.append('files', file);
+        }
+
+        try {
+            this.setLoading('uploadBtn', true);
+            this.updateStatus('Uploading files...');
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                this.showNotification('Upload Success', result.message, 'success');
+                this.refreshStatus();
+            } else {
+                this.showNotification('Upload Error', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            this.showNotification('Upload Error', 'Failed to upload files', 'danger');
+        } finally {
+            this.setLoading('uploadBtn', false);
+        }
+    }
+
+    async clearUploadQueue() {
+        try {
+            this.setLoading('clearQueueBtn', true);
+            
+            const response = await fetch('/clear_queue', {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Queue Cleared', result.message, 'success');
+                this.refreshStatus();
+            } else {
+                this.showNotification('Error', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Clear queue error:', error);
+            this.showNotification('Error', 'Failed to clear queue', 'danger');
+        } finally {
+            this.setLoading('clearQueueBtn', false);
+        }
+    }
+
+    async startProcessing() {
+        const positivePrompt = document.getElementById('positivePrompt').value;
+        const negativePrompt = document.getElementById('negativePrompt').value;
+
+        try {
+            this.setLoading('processBtn', true);
+            this.updateStatus('Starting processing...');
+            
+            const response = await fetch('/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    positive_prompt: positivePrompt,
+                    negative_prompt: negativePrompt
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Processing Started', result.message, 'success');
+                this.showProgressBar();
+            } else {
+                this.showNotification('Processing Error', result.message, 'danger');
+                this.setLoading('processBtn', false);
+            }
+        } catch (error) {
+            console.error('Processing error:', error);
+            this.showNotification('Processing Error', 'Failed to start processing', 'danger');
+            this.setLoading('processBtn', false);
+        }
+    }
+
+    async clearAllResults() {
+        if (!confirm('Are you sure you want to clear all results? This will delete all processed images.')) {
+            return;
+        }
+
+        try {
+            this.setLoading('clearAllBtn', true);
+            
+            const response = await fetch('/clear_results', {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Results Cleared', result.message, 'success');
+                this.refreshStatus();
+            } else {
+                this.showNotification('Error', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Clear results error:', error);
+            this.showNotification('Error', 'Failed to clear results', 'danger');
+        } finally {
+            this.setLoading('clearAllBtn', false);
+        }
+    }
+
+    async deleteImage(imageId) {
+        if (!confirm('Are you sure you want to delete this image?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/delete_image/${imageId}`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Image Deleted', result.message, 'success');
+                this.refreshStatus();
+            } else {
+                this.showNotification('Delete Error', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            this.showNotification('Delete Error', 'Failed to delete image', 'danger');
+        }
+    }
+
+    async downloadArchive() {
+        try {
+            window.open('/download_archive', '_blank');
+        } catch (error) {
+            console.error('Download error:', error);
+            this.showNotification('Download Error', 'Failed to download archive', 'danger');
+        }
+    }
+
+    async refreshStatus() {
+        try {
+            const response = await fetch('/status');
+            const data = await response.json();
+            
+            this.updateUploadGallery(data.upload_queue);
+            this.updateResultsGallery(data.results);
+            this.updateStatusTable(data.status_data);
+            this.updateQueueCounter(data.queue_count);
+        } catch (error) {
+            console.error('Status refresh error:', error);
+        }
+    }
+
+    updateUploadGallery(uploadQueue) {
+        const gallery = document.getElementById('uploadGallery');
+        gallery.innerHTML = '';
+
+        uploadQueue.forEach(item => {
+            const imageItem = document.createElement('div');
+            imageItem.className = 'image-item fade-in-up';
+            imageItem.dataset.id = item.id;
+            
+            const filename = item.path.split('/').pop();
+            
+            imageItem.innerHTML = `
+                <img src="/uploads/${filename}" alt="${item.original_name}">
+                <div class="image-overlay">
+                    <span class="image-name">${item.original_name}</span>
+                </div>
+            `;
+            
+            gallery.appendChild(imageItem);
+        });
+    }
+
+    updateResultsGallery(results) {
+        const gallery = document.getElementById('resultsGallery');
+        gallery.innerHTML = '';
+
+        results.forEach(result => {
+            const imageItem = document.createElement('div');
+            imageItem.className = 'image-item fade-in-up';
+            imageItem.dataset.id = result.image_id;
+            
+            imageItem.innerHTML = `
+                <img src="/outputs/${result.name}" alt="${result.name}">
+                <div class="image-overlay">
+                    <span class="image-name">${result.name}</span>
+                    <button class="btn btn-sm btn-danger delete-btn" data-id="${result.image_id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            
+            gallery.appendChild(imageItem);
+        });
+    }
+
+    updateStatusTable(statusData) {
+        const tbody = document.getElementById('statusTableBody');
+        tbody.innerHTML = '';
+
+        statusData.forEach(status => {
+            const row = document.createElement('tr');
+            const statusClass = `status-${status.status.split(':')[0].toLowerCase()}`;
+            
+            row.innerHTML = `
+                <td>${status.filename}</td>
+                <td><span class="badge ${statusClass}">${status.status}</span></td>
+                <td>${status.gpu}</td>
+                <td>${status.progress}%</td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+    }
+
+    updateImageStatus(data) {
+        // Update status table if image exists
+        const rows = document.querySelectorAll('#statusTableBody tr');
+        rows.forEach(row => {
+            const filename = row.cells[0].textContent;
+            if (filename === data.filename) {
+                const statusBadge = row.cells[1].querySelector('.badge');
+                const statusClass = `status-${data.status.toLowerCase()}`;
+                statusBadge.className = `badge ${statusClass}`;
+                statusBadge.textContent = data.status;
+                row.cells[3].textContent = `${data.progress || 0}%`;
+            }
+        });
+
+        // Add processing indicator if processing
+        if (data.status === 'processing') {
+            const imageItem = document.querySelector(`[data-id="${data.image_id}"]`);
+            if (imageItem) {
+                imageItem.classList.add('processing-indicator');
+            }
+        }
+    }
+
+    handleProcessingComplete(data) {
+        // Refresh results gallery to show new images
+        this.refreshStatus();
+        
+        // Remove processing indicator
+        const imageItem = document.querySelector(`[data-id="${data.image_id}"]`);
+        if (imageItem) {
+            imageItem.classList.remove('processing-indicator');
+        }
+    }
+
+    updateBatchProgress(data) {
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        const percentage = (data.completed / data.total) * 100;
+        progressBar.style.width = `${percentage}%`;
+        progressText.textContent = `${data.completed}/${data.total} images processed`;
+        
+        this.updateStatus(`Processing: ${data.completed}/${data.total} images completed`);
+    }
+
+    handleBatchComplete(data) {
+        this.hideProgressBar();
+        this.setLoading('processBtn', false);
+        
+        const message = `Batch complete! Processed: ${data.total_processed}, Completed: ${data.completed}, Failed: ${data.failed}`;
+        this.updateStatus(message);
+        this.showNotification('Batch Complete', message, 'success');
+        
+        // Refresh to show final results
+        this.refreshStatus();
+    }
+
+    showProgressBar() {
+        const container = document.getElementById('progressContainer');
+        container.style.display = 'block';
+        
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        
+        const progressText = document.getElementById('progressText');
+        progressText.textContent = '0/0 images processed';
+    }
+
+    hideProgressBar() {
+        const container = document.getElementById('progressContainer');
+        container.style.display = 'none';
+    }
+
+    updateStatus(message) {
+        const statusText = document.getElementById('statusText');
+        statusText.textContent = message;
+        statusText.className = 'alert alert-info';
+    }
+
+    updateQueueCounter(count) {
+        const counter = document.getElementById('queueCounter');
+        counter.textContent = `${count} images in queue`;
+    }
+
+    setLoading(buttonId, loading) {
+        const button = document.getElementById(buttonId);
+        const icon = button.querySelector('i');
+        
+        if (loading) {
+            button.disabled = true;
+            button.classList.add('loading');
+            if (icon) {
+                icon.className = 'fas fa-spinner fa-spin';
+            }
+        } else {
+            button.disabled = false;
+            button.classList.remove('loading');
+            if (icon) {
+                // Restore original icon based on button
+                const iconMap = {
+                    'uploadBtn': 'fas fa-plus',
+                    'processBtn': 'fas fa-play',
+                    'clearQueueBtn': 'fas fa-trash',
+                    'clearAllBtn': 'fas fa-trash-alt'
+                };
+                icon.className = iconMap[buttonId] || 'fas fa-cog';
+            }
+        }
+    }
+
+    showNotification(title, message, type = 'info') {
+        const toast = document.getElementById('notificationToast');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        // Set message
+        toastMessage.textContent = message;
+        
+        // Set type styling
+        toast.className = `toast border-${type}`;
+        
+        // Show toast
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+    }
+
+    startStatusPolling() {
+        // Poll status every 2 seconds when not using websockets for updates
+        setInterval(() => {
+            if (!this.socket || !this.socket.connected) {
+                this.refreshStatus();
+            }
+        }, 2000);
+    }
+}
+
+// Initialize the app when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.comfyApp = new ComfyUIApp();
+});
