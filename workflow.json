@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "image": "input_image.jpg"
+      "image": "the_input_image.jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -31,7 +31,7 @@
   },
   "10": {
     "inputs": {
-      "text": "the input prompt",
+      "text": "beautiful stunning outfit",
       "clip": [
         "9",
         1
@@ -66,7 +66,7 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 493330409979200,
+      "noise_seed": 1068557481135671,
       "steps": 80,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -126,7 +126,7 @@
   },
   "15": {
     "inputs": {
-      "text": "[the negative prompt]blurry, low quality, worst quality, wrong anatomy",
+      "text": "blurry, low quality, worst quality, wrong anatomy, censored, clothes",
       "clip": [
         "9",
         1
@@ -144,28 +144,6 @@
     "class_type": "SAM2ModelLoader (segment anything2)",
     "_meta": {
       "title": "SAM2ModelLoader (segment anything2)"
-    }
-  },
-  "17": {
-    "inputs": {
-      "prompt": "garment",
-      "threshold": 0.30000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
     }
   },
   "18": {
@@ -202,138 +180,6 @@
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
-    }
-  },
-  "28": {
-    "inputs": {
-      "value": ""
-    },
-    "class_type": "PrimitiveStringMultiline",
-    "_meta": {
-      "title": "String (Multiline)"
-    }
-  },
-  "29": {
-    "inputs": {
-      "prompt": "pants",
-      "threshold": 0.30000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
-    }
-  },
-  "30": {
-    "inputs": {
-      "prompt": "vest",
-      "threshold": 0.30000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
-    }
-  },
-  "31": {
-    "inputs": {
-      "prompt": "shirt",
-      "threshold": 0.30000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
-    }
-  },
-  "32": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "operation": "add",
-      "destination": [
-        "17",
-        1
-      ],
-      "source": [
-        "29",
-        1
-      ]
-    },
-    "class_type": "MaskComposite",
-    "_meta": {
-      "title": "MaskComposite"
-    }
-  },
-  "33": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "operation": "add",
-      "destination": [
-        "30",
-        1
-      ],
-      "source": [
-        "31",
-        1
-      ]
-    },
-    "class_type": "MaskComposite",
-    "_meta": {
-      "title": "MaskComposite"
-    }
-  },
-  "34": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "operation": "add",
-      "destination": [
-        "32",
-        0
-      ],
-      "source": [
-        "33",
-        0
-      ]
-    },
-    "class_type": "MaskComposite",
-    "_meta": {
-      "title": "MaskComposite"
     }
   },
   "35": {
@@ -377,35 +223,13 @@
       "title": "MaskComposite"
     }
   },
-  "37": {
-    "inputs": {
-      "prompt": "skin",
-      "threshold": 0.20000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
-    }
-  },
   "39": {
     "inputs": {
       "x": 0,
       "y": 0,
       "operation": "subtract",
       "destination": [
-        "34",
+        "55",
         0
       ],
       "source": [
@@ -416,18 +240,6 @@
     "class_type": "MaskComposite",
     "_meta": {
       "title": "MaskComposite"
-    }
-  },
-  "40": {
-    "inputs": {
-      "mask": [
-        "34",
-        0
-      ]
-    },
-    "class_type": "MaskPreview+",
-    "_meta": {
-      "title": "🔧 Mask Preview"
     }
   },
   "41": {
@@ -477,7 +289,7 @@
       "guide_size": 512,
       "guide_size_for": true,
       "max_size": 3686.400390625,
-      "seed": 555638402111167,
+      "seed": 640336014300307,
       "steps": 40,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -582,6 +394,67 @@
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
+    }
+  },
+  "53": {
+    "inputs": {
+      "Hat": true,
+      "Hair": false,
+      "Face": false,
+      "Sunglasses": false,
+      "Upper-clothes": true,
+      "Skirt": true,
+      "Dress": true,
+      "Belt": true,
+      "Pants": true,
+      "Left-arm": false,
+      "Right-arm": false,
+      "Left-leg": false,
+      "Right-leg": false,
+      "Bag": true,
+      "Scarf": true,
+      "Left-shoe": true,
+      "Right-shoe": true,
+      "Background": false,
+      "process_res": 512,
+      "mask_blur": 0,
+      "mask_offset": 0,
+      "invert_output": false,
+      "background": "Alpha",
+      "images": [
+        "1",
+        0
+      ],
+      "background_color": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "ClothesSegment",
+    "_meta": {
+      "title": "Clothing Segmentation (RMBG)"
+    }
+  },
+  "54": {
+    "inputs": {
+      "preset": "black",
+      "color": ""
+    },
+    "class_type": "AILab_ColorInput",
+    "_meta": {
+      "title": "Color Input (RMBG) 🎨"
+    }
+  },
+  "55": {
+    "inputs": {
+      "mask": [
+        "53",
+        1
+      ]
+    },
+    "class_type": "AILab_MaskPreview",
+    "_meta": {
+      "title": "Mask Preview (RMBG) 🎭"
     }
   }
 }

@@ -42,6 +42,12 @@ setup_vastai() {
     # Create supervisor config directory if it doesn't exist
     sudo mkdir -p /etc/supervisor/conf.d/
     
+    # Handle existing syncthing configuration
+    if [ -f "/etc/supervisor/conf.d/syncthing.conf" ]; then
+        echo "Found existing syncthing.conf, moving it to syncthing.conf.old..."
+        sudo mv /etc/supervisor/conf.d/syncthing.conf /etc/supervisor/conf.d/syncthing.conf.old
+    fi
+    
     # Copy supervisor configuration
     sudo cp vastai_dropins/batchprocessui.conf /etc/supervisor/conf.d/
     
@@ -155,6 +161,15 @@ if [ ! -d "ComfyUI-Impact-Pack" ]; then
     git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git
     cd ComfyUI-Impact-Pack
     python install.py
+    cd ..
+fi
+
+# Install RMBG node
+echo "Installing RMBG node..."
+if [ ! -d "ComfyUI-RMBG" ]; then
+    git clone https://github.com/Jcd1230/rembg-comfyui-node.git ComfyUI-RMBG
+    cd ComfyUI-RMBG
+    pip install rembg
     cd ..
 fi
 
