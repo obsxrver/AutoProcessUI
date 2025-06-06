@@ -12,6 +12,7 @@ class ComfyUIApp {
         this.setupSocketIO();
         this.setupEventListeners();
         this.setupDragAndDrop();
+        this.setupKeyboardShortcuts();
         this.startStatusPolling();
     }
 
@@ -45,6 +46,18 @@ class ComfyUIApp {
 
         this.socket.on('processing_error', (data) => {
             this.showNotification('Processing Error', data.error, 'danger');
+        });
+
+        this.socket.on('preview_update', (data) => {
+            this.updatePreviewImage(data);
+        });
+
+        this.socket.on('node_update', (data) => {
+            this.updateNodeStatus(data);
+        });
+
+        this.socket.on('progress_update', (data) => {
+            this.updateProgressStatus(data);
         });
     }
 
@@ -91,6 +104,18 @@ class ComfyUIApp {
                 this.deleteImage(imageId);
             }
         });
+
+        // Image click for full view (delegated event handling)
+        document.addEventListener('click', (e) => {
+            // Check if clicked on an image inside resultsGallery
+            const imageItem = e.target.closest('#resultsGallery .image-item');
+            if (imageItem && !e.target.closest('.delete-btn')) {
+                const img = imageItem.querySelector('img');
+                if (img) {
+                    this.showImageModal(img.src, img.alt);
+                }
+            }
+        });
     }
 
     setupDragAndDrop() {
@@ -122,6 +147,44 @@ class ComfyUIApp {
     preventDefaults(e) {
         e.preventDefault();
         e.stopPropagation();
+    }
+
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            const modal = document.getElementById('imageModal');
+            const modalInstance = bootstrap.Modal.getInstance(modal);
+            
+            if (modalInstance && modalInstance._isShown) {
+                if (e.key === 'ArrowLeft') {
+                    this.navigateImage('prev');
+                } else if (e.key === 'ArrowRight') {
+                    this.navigateImage('next');
+                }
+            }
+        });
+    }
+
+    navigateImage(direction) {
+        const currentImage = document.getElementById('modalImage');
+        const currentSrc = currentImage.src;
+        
+        // Get all result images
+        const allImages = Array.from(document.querySelectorAll('#resultsGallery .image-item img'));
+        const currentIndex = allImages.findIndex(img => img.src === currentSrc);
+        
+        if (currentIndex === -1) return;
+        
+        let newIndex;
+        if (direction === 'prev') {
+            newIndex = currentIndex > 0 ? currentIndex - 1 : allImages.length - 1;
+        } else {
+            newIndex = currentIndex < allImages.length - 1 ? currentIndex + 1 : 0;
+        }
+        
+        const newImage = allImages[newIndex];
+        if (newImage) {
+            this.showImageModal(newImage.src, newImage.alt);
+        }
     }
 
     async handleFileUpload() {
@@ -296,6 +359,7 @@ class ComfyUIApp {
             this.updateResultsGallery(data.results);
             this.updateStatusTable(data.status_data);
             this.updateQueueCounter(data.queue_count);
+            this.updateLivePreview(data.preview_images || {});
         } catch (error) {
             console.error('Status refresh error:', error);
         }
@@ -329,8 +393,9 @@ class ComfyUIApp {
 
         results.forEach(result => {
             const imageItem = document.createElement('div');
-            imageItem.className = 'image-item fade-in-up';
+            imageItem.className = 'image-item clickable fade-in-up';
             imageItem.dataset.id = result.image_id;
+            imageItem.title = 'Click to view full size';
             
             imageItem.innerHTML = `
                 <img src="/outputs/${result.name}" alt="${result.name}">
@@ -354,6 +419,7 @@ class ComfyUIApp {
             const row = document.createElement('tr');
             const statusClass = `status-${status.status.split(':')[0].toLowerCase()}`;
             
+            row.dataset.imageId = status.image_id;
             row.innerHTML = `
                 <td>${status.filename}</td>
                 <td><span class="badge ${statusClass}">${status.status}</span></td>
@@ -396,6 +462,12 @@ class ComfyUIApp {
         const imageItem = document.querySelector(`[data-id="${data.image_id}"]`);
         if (imageItem) {
             imageItem.classList.remove('processing-indicator');
+        }
+        
+        // Remove preview for this image
+        const previewItem = document.querySelector(`[data-preview-id="${data.image_id}"]`);
+        if (previewItem) {
+            previewItem.remove();
         }
     }
 
@@ -497,6 +569,169 @@ class ComfyUIApp {
                 this.refreshStatus();
             }
         }, 2000);
+    }
+
+    updatePreviewImage(data) {
+        // Update live preview gallery with new preview
+        const previewGallery = document.getElementById('livePreview');
+        if (!previewGallery) return;
+
+        // Find or create preview item container
+        let previewItem = previewGallery.querySelector(`[data-preview-id="${data.image_id}"]`);
+        
+        if (!previewItem) {
+            previewItem = document.createElement('div');
+            previewItem.className = 'image-item preview-container fade-in-up';
+            previewItem.dataset.previewId = data.image_id;
+            previewItem.style.position = 'relative';
+            
+            // Add a loading placeholder
+            const placeholder = document.createElement('div');
+            placeholder.className = 'preview-placeholder';
+            placeholder.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            previewItem.appendChild(placeholder);
+            
+            previewGallery.appendChild(previewItem);
+        }
+
+        // Create new image element
+        const newImg = document.createElement('img');
+        newImg.style.position = 'absolute';
+        newImg.style.top = '0';
+        newImg.style.left = '0';
+        newImg.style.width = '100%';
+        newImg.style.height = '100%';
+        newImg.style.objectFit = 'cover';
+        newImg.style.zIndex = '2';
+        newImg.alt = 'Preview';
+        
+        // Set the source
+        if (data.preview_path) {
+            newImg.src = data.preview_path;
+        } else if (data.preview_url) {
+            newImg.src = data.preview_url;
+        }
+
+        // When new image loads, add it and remove old ones
+        newImg.onload = () => {
+            // Find all existing images in this container
+            const existingImages = previewItem.querySelectorAll('img');
+            
+            // Add the new image
+            previewItem.appendChild(newImg);
+            
+            // Remove placeholder if it exists
+            const placeholder = previewItem.querySelector('.preview-placeholder');
+            if (placeholder) {
+                placeholder.remove();
+            }
+            
+            // Add or update overlay
+            let overlay = previewItem.querySelector('.image-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'image-overlay';
+                overlay.innerHTML = '<span class="image-name">Processing...</span>';
+                previewItem.appendChild(overlay);
+            }
+            overlay.style.zIndex = '3'; // Keep overlay on top
+            
+            // Remove old images after a short delay to ensure smooth transition
+            setTimeout(() => {
+                existingImages.forEach(img => {
+                    if (img !== newImg) {
+                        img.remove();
+                    }
+                });
+            }, 100);
+        };
+
+        // Handle error case
+        newImg.onerror = () => {
+            console.error('Failed to load preview image');
+        };
+    }
+
+    updateNodeStatus(data) {
+        // Update node information in status display
+        console.log(`Image ${data.image_id} executing node: ${data.node}`);
+    }
+
+    updateProgressStatus(data) {
+        // Update progress for specific image
+        const row = document.querySelector(`#statusTableBody tr[data-image-id="${data.image_id}"]`);
+        if (row) {
+            row.cells[3].textContent = `${data.progress}%`;
+        }
+    }
+
+    updateLivePreview(previewImages) {
+        const previewGallery = document.getElementById('livePreview');
+        if (!previewGallery) return;
+
+        // Get existing preview items
+        const existingPreviews = new Set(
+            Array.from(previewGallery.querySelectorAll('[data-preview-id]'))
+                .map(el => el.dataset.previewId)
+        );
+
+        // Update or add preview images
+        Object.entries(previewImages).forEach(([imageId, previewPath]) => {
+            // Use the same update method for consistency
+            const imageSrc = previewPath.startsWith('http') 
+                ? previewPath 
+                : `/previews/${previewPath.split('/').pop()}`;
+            
+            this.updatePreviewImage({
+                image_id: imageId,
+                [previewPath.startsWith('http') ? 'preview_url' : 'preview_path']: imageSrc
+            });
+            
+            existingPreviews.delete(imageId);
+        });
+
+        // Remove previews that are no longer in the list
+        existingPreviews.forEach(imageId => {
+            const previewItem = previewGallery.querySelector(`[data-preview-id="${imageId}"]`);
+            if (previewItem) {
+                previewItem.remove();
+            }
+        });
+    }
+
+    showImageModal(imageSrc, imageName) {
+        // Update modal content
+        const modalImage = document.getElementById('modalImage');
+        const modalTitle = document.getElementById('imageModalLabel');
+        const imageInfo = document.getElementById('imageInfo');
+        const downloadLink = document.getElementById('downloadLink');
+        
+        modalImage.src = imageSrc;
+        modalTitle.textContent = imageName || 'Image Preview';
+        
+        // Set download link
+        downloadLink.href = imageSrc;
+        downloadLink.download = imageName || 'image.png';
+        
+        // Load image to get dimensions
+        const img = new Image();
+        img.onload = function() {
+            imageInfo.textContent = `${this.width} × ${this.height} pixels`;
+        };
+        img.src = imageSrc;
+        
+        // Get existing modal instance or create new one
+        const modalElement = document.getElementById('imageModal');
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        
+        if (!modal) {
+            modal = new bootstrap.Modal(modalElement);
+        }
+        
+        // Only show if not already shown
+        if (!modal._isShown) {
+            modal.show();
+        }
     }
 }
 

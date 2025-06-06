@@ -18,9 +18,32 @@ from flask import Flask, render_template, request, jsonify, send_file, send_from
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from werkzeug.utils import secure_filename
 import pandas as pd
+import websocket
+import struct
+from PIL import Image
+import io
+import requests
 
 # Import the ComfyUI processing logic
 from batchProcess import ComfyUIMultiGPU
+
+# Import ComfyUI websocket handler if available
+try:
+    from comfyui_websocket import parse_comfyui_binary_message, handle_preview_image
+except ImportError:
+    # Fallback implementations
+    def parse_comfyui_binary_message(data):
+        if len(data) < 8:
+            return None, None
+        msg_type = struct.unpack('>I', data[:4])[0]
+        payload = data[8:]
+        return msg_type, payload
+    
+    def handle_preview_image(image_data):
+        try:
+            return Image.open(io.BytesIO(image_data))
+        except:
+            return None
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
@@ -118,6 +141,138 @@ class FlaskComfyUIApp:
             # Start ComfyUI instances
             self.comfyui_processes = self.orchestrator.start_comfyui_instances()
             time.sleep(10)  # Wait for servers to initialize
+    
+    def monitor_progress_websocket(self, gpu_id, client_id, image_id):
+        """Monitor ComfyUI progress via websocket for live previews"""
+        ws_url = f"ws://localhost:{self.orchestrator.base_ports[gpu_id]}/ws?clientId={client_id}"
+        
+        def on_message(ws, message):
+            try:
+                # Check if message is binary (preview image) or text (JSON)
+                if isinstance(message, bytes):
+                    # Binary message - parse ComfyUI format
+                    msg_type, payload = parse_comfyui_binary_message(message)
+                    
+                    if msg_type == 1 and payload:  # Type 1 = preview image
+                        # Convert to image
+                        img = handle_preview_image(payload)
+                        if img:
+                            # Save temporarily for preview
+                            preview_path = self.temp_input_dir / f"preview_{image_id}_{int(time.time()*1000)}.png"
+                            img.save(preview_path, 'PNG')
+                            self.preview_images[image_id] = str(preview_path)
+                            self.processing_status[image_id]['has_preview'] = True
+                            
+                            # Emit preview update via SocketIO
+                            socketio.emit('preview_update', {
+                                'image_id': image_id,
+                                'preview_path': f"/previews/{preview_path.name}"
+                            })
+                else:
+                    # Text message - parse as JSON
+                    data = json.loads(message)
+                    
+                    # Check for execution updates
+                    if data.get('type') == 'executing':
+                        node = data.get('data', {}).get('node')
+                        if node is not None:
+                            self.processing_status[image_id]['current_node'] = node
+                            socketio.emit('node_update', {
+                                'image_id': image_id,
+                                'node': node
+                            })
+                    
+                    elif data.get('type') == 'execution_start':
+                        self.processing_status[image_id]['status'] = 'processing'
+                        
+                    elif data.get('type') == 'progress':
+                        progress_data = data.get('data', {})
+                        if 'value' in progress_data and 'max' in progress_data:
+                            value = progress_data['value']
+                            max_val = progress_data['max']
+                            if max_val > 0:
+                                progress = int((value / max_val) * 100)
+                                self.processing_status[image_id]['progress'] = progress
+                                socketio.emit('progress_update', {
+                                    'image_id': image_id,
+                                    'progress': progress
+                                })
+                    
+                    elif data.get('type') == 'executed':
+                        # Check for output images
+                        output = data.get('data', {}).get('output', {})
+                        if 'images' in output:
+                            for img in output['images']:
+                                if 'filename' in img:
+                                    filename = img['filename']
+                                    img_type = img.get('type', 'output')
+                                    subfolder = img.get('subfolder', '')
+                                    
+                                    # Build preview URL
+                                    if subfolder:
+                                        preview_url = f"http://localhost:{self.orchestrator.base_ports[gpu_id]}/view?filename={filename}&subfolder={subfolder}&type={img_type}"
+                                    else:
+                                        preview_url = f"http://localhost:{self.orchestrator.base_ports[gpu_id]}/view?filename={filename}&type={img_type}"
+                                    
+                                    # Store as preview
+                                    self.preview_images[image_id] = preview_url
+                                    
+                                    # Emit preview update
+                                    socketio.emit('preview_update', {
+                                        'image_id': image_id,
+                                        'preview_url': preview_url
+                                    })
+                                    
+            except json.JSONDecodeError:
+                # Not JSON, might be binary data we couldn't process
+                pass
+            except Exception as e:
+                # Only log if it's not an encoding error (which we expect for binary data)
+                if "codec" not in str(e).lower():
+                    print(f"Error processing websocket message: {e}")
+        
+        def on_error(ws, error):
+            # Only log non-encoding errors
+            if "codec" not in str(error).lower():
+                print(f"WebSocket error for GPU {gpu_id}: {error}")
+        
+        def on_close(ws, close_status_code, close_msg):
+            if image_id in self.ws_connections:
+                del self.ws_connections[image_id]
+            # Clean up preview image if exists
+            if image_id in self.preview_images:
+                preview = self.preview_images[image_id]
+                if isinstance(preview, str) and preview.startswith(str(self.temp_input_dir)):
+                    try:
+                        os.remove(preview)
+                    except:
+                        pass
+        
+        def on_open(ws):
+            print(f"WebSocket connected for GPU {gpu_id}, monitoring {image_id}")
+        
+        try:
+            # Configure websocket to handle binary frames
+            ws = websocket.WebSocketApp(ws_url,
+                                      on_message=on_message,
+                                      on_error=on_error,
+                                      on_close=on_close,
+                                      on_open=on_open)
+            
+            self.ws_connections[image_id] = ws
+            
+            # Run websocket in a separate thread with proper options
+            def run_ws():
+                ws.run_forever(
+                    skip_utf8_validation=True  # Important for binary data
+                )
+            
+            ws_thread = threading.Thread(target=run_ws)
+            ws_thread.daemon = True
+            ws_thread.start()
+            
+        except Exception as e:
+            print(f"Failed to connect websocket: {e}")
     
     def add_to_upload_queue(self, files):
         """Handle file uploads - single or multiple"""
@@ -232,6 +387,16 @@ class FlaskComfyUIApp:
                 except Exception as e:
                     print(f"Error deleting {file_path}: {e}")
         
+        # Close any open websockets
+        # Create a list copy to avoid dictionary modification during iteration
+        ws_list = list(self.ws_connections.values())
+        for ws in ws_list:
+            try:
+                ws.close()
+            except:
+                pass
+        self.ws_connections.clear()
+        
         # Clear caches
         self.results_cache.clear()
         self.processing_status.clear()
@@ -252,6 +417,7 @@ class FlaskComfyUIApp:
                 status_str = f"failed: {status['error']}"
             
             data.append({
+                'image_id': image_id,
                 'filename': status.get('filename', 'Unknown'),
                 'status': status_str,
                 'gpu': status.get('gpu', -1),
@@ -406,6 +572,9 @@ class FlaskComfyUIApp:
             # Generate client ID for tracking
             client_id = str(uuid.uuid4())
             
+            # Start websocket monitoring before queuing
+            self.monitor_progress_websocket(gpu_id, client_id, image_id)
+            
             payload = {
                 "prompt": workflow_copy,
                 "client_id": client_id
@@ -425,11 +594,8 @@ class FlaskComfyUIApp:
             
             prompt_id = result['prompt_id']
             
-            # Poll for completion with progress updates
-            start_time = time.time()
-            timeout = 600
-            
-            while time.time() - start_time < timeout:
+            # Poll for completion with progress updates (no timeout - let it run until done)
+            while True:
                 history = await self.orchestrator.get_history_async(
                     session, server_url, prompt_id
                 )
@@ -545,13 +711,6 @@ class FlaskComfyUIApp:
                             })
                 
                 await asyncio.sleep(1)
-            
-            self.processing_status[image_id]['status'] = 'timeout'
-            socketio.emit('status_update', {
-                'image_id': image_id,
-                'status': 'timeout'
-            })
-            return None
             
         except Exception as e:
             self.processing_status[image_id]['status'] = 'error'
@@ -699,11 +858,20 @@ def get_status():
     upload_queue = batch_app.get_upload_queue_images()
     results = batch_app.get_all_results()
     
+    # Get preview images for currently processing items
+    preview_images = {}
+    for image_id, preview in batch_app.preview_images.items():
+        if image_id in batch_app.processing_status:
+            status = batch_app.processing_status[image_id]
+            if status.get('status') == 'processing':
+                preview_images[image_id] = preview
+    
     return jsonify({
         "status_data": status_data,
         "upload_queue": upload_queue,
         "results": results,
-        "queue_count": len(batch_app.upload_queue)
+        "queue_count": len(batch_app.upload_queue),
+        "preview_images": preview_images
     })
 
 @app.route('/download_archive')
@@ -724,6 +892,11 @@ def serve_output_image(filename):
 @app.route('/uploads/<path:filename>')
 def serve_upload_image(filename):
     """Serve uploaded images"""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/previews/<path:filename>')
+def serve_preview_image(filename):
+    """Serve preview images"""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/delete_image/<image_id>')
@@ -767,6 +940,11 @@ if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static', exist_ok=True)
     
+    # Parse command line arguments
+    import argparse
+    parser = argparse.ArgumentParser(description='ComfyUI Multi-GPU Batch Processor')
+    parser.add_argument('--port', type=int, default=18384, help='Port to run the server on')
+    args = parser.parse_args()
+    
     # Run the app
-    port = int(os.environ.get("FLASK_PORT", "5000"))
-    socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    socketio.run(app, host='0.0.0.0', port=args.port, debug=False, allow_unsafe_werkzeug=True)

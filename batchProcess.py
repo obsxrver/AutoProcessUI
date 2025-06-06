@@ -172,12 +172,10 @@ class ComfyUIMultiGPU:
             return None
     
     async def wait_for_completion_async(self, session: aiohttp.ClientSession,
-                                      server_url: str, prompt_id: str,
-                                      timeout: int = 600) -> Dict:
-        """Wait for a prompt to complete and return the result"""
-        start_time = time.time()
+                                      server_url: str, prompt_id: str) -> Dict:
+        """Wait for a prompt to complete and return the result (no timeout)"""
         
-        while time.time() - start_time < timeout:
+        while True:
             history = await self.get_history_async(session, server_url, prompt_id)
             
             if history and prompt_id in history:
@@ -194,8 +192,6 @@ class ComfyUIMultiGPU:
                     }
             
             await asyncio.sleep(2)
-        
-        return {'status': 'timeout'}
     
     def modify_workflow_for_image(self, image_filename: str) -> Dict:
         """Modify the workflow to use a specific image"""
