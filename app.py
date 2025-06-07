@@ -500,8 +500,38 @@ class FlaskComfyUIApp:
                     # Cancel remaining tasks
                     for t in tasks:
                         if not t.done():
-                            t.cancel()
-                    break
+                            try:
+                                t.cancel()
+                                await t
+                            except asyncio.CancelledError:
+                                pass
+                            except Exception as e:
+                                print(f"Error cancelling task: {e}")
+                    
+                    # Close websocket connections
+                    for ws in self.ws_connections.values():
+                        try:
+                            ws.close()
+                        except:
+                            pass
+                    self.ws_connections.clear()
+                    
+                    # Update status for remaining images
+                    for image_data in image_info_list[completed_count:]:
+                        image_id = image_data['image_id']
+                        if image_id in self.processing_status:
+                            self.processing_status[image_id]['status'] = 'cancelled'
+                            socketio.emit('status_update', {
+                                'image_id': image_id,
+                                'status': 'cancelled',
+                                'progress': 0
+                            })
+                    
+                    socketio.emit('batch_stopped', {
+                        'completed': completed_count,
+                        'total': len(tasks)
+                    })
+                    return all_results
                     
                 try:
                     result_item = await task_future
@@ -531,12 +561,6 @@ class FlaskComfyUIApp:
                         'completed': completed_count,
                         'total': len(tasks)
                     })
-            
-            if self.stop_processing:
-                socketio.emit('batch_stopped', {
-                    'completed': completed_count,
-                    'total': len(tasks)
-                })
         
         return all_results
     

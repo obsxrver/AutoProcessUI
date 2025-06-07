@@ -306,6 +306,10 @@ class ComfyUIApp {
     }
 
     async stopProcessing() {
+        if (!this.isProcessing) {
+            return;  // Don't stop if not processing
+        }
+        
         try {
             const response = await fetch('/stop', {
                 method: 'POST'
