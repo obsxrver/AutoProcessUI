@@ -85,6 +85,9 @@ class FlaskComfyUIApp:
         self.final_status = None
         self.final_archive = None
         
+        # Stop processing flag
+        self.stop_processing = False
+        
         # Pre-warm ComfyUI servers on startup
         print("Pre-warming ComfyUI servers...")
         try:
@@ -430,6 +433,9 @@ class FlaskComfyUIApp:
                                             positive_prompt: str, 
                                             negative_prompt: str):
         """Process batch of images with live updates via SocketIO"""
+        # Reset stop flag at start of processing
+        self.stop_processing = False
+        
         # Ensure orchestrator is initialized
         if self.orchestrator is None:
             try:
@@ -457,6 +463,9 @@ class FlaskComfyUIApp:
             tasks = []
             
             for i, image_data in enumerate(image_info_list):
+                if self.stop_processing:
+                    break
+                    
                 gpu_id = i % self.orchestrator.num_gpus
                 image_id = image_data['image_id']
                 file_path = image_data['path']
@@ -487,6 +496,13 @@ class FlaskComfyUIApp:
             # Process with live updates
             completed_count = 0
             for task_future in asyncio.as_completed(tasks):
+                if self.stop_processing:
+                    # Cancel remaining tasks
+                    for t in tasks:
+                        if not t.done():
+                            t.cancel()
+                    break
+                    
                 try:
                     result_item = await task_future
                     if result_item:
@@ -505,6 +521,9 @@ class FlaskComfyUIApp:
                         'total': len(tasks)
                     })
                     
+                except asyncio.CancelledError:
+                    print("Task cancelled due to stop request")
+                    continue
                 except Exception as e:
                     print(f"Error processing an image task: {e}")
                     completed_count += 1
@@ -512,6 +531,12 @@ class FlaskComfyUIApp:
                         'completed': completed_count,
                         'total': len(tasks)
                     })
+            
+            if self.stop_processing:
+                socketio.emit('batch_stopped', {
+                    'completed': completed_count,
+                    'total': len(tasks)
+                })
         
         return all_results
     
@@ -916,6 +941,15 @@ def delete_image(image_id):
         return jsonify({"status": "success", "message": f"Deleted image {image_id}"})
     
     return jsonify({"status": "error", "message": "Image not found"})
+
+@app.route('/stop', methods=['POST'])
+def stop_processing():
+    """Stop the current batch processing"""
+    batch_app.stop_processing = True
+    return jsonify({
+        "status": "success", 
+        "message": "Stopping batch processing..."
+    })
 
 # SocketIO Events
 @socketio.on('connect')

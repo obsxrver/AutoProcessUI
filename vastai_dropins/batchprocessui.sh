@@ -17,7 +17,7 @@ fi
 # Get port from portal.yaml
 INTERNAL_PORT=$(grep -A4 "BatchProcessUI:" /etc/portal.yaml | grep "internal_port:" | awk '{print $2}')
 if [ -z "$INTERNAL_PORT" ]; then
-    INTERNAL_PORT=18384  # Default port if not found
+    INTERNAL_PORT=18181  # Default port if not found
 fi
 
 # Activate the venv

@@ -158,18 +158,18 @@ fi
 # Install ComfyUI-Impact-Pack
 echo "Installing ComfyUI-Impact-Pack..."
 if [ ! -d "ComfyUI-Impact-Pack" ]; then
-    git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git
-    cd ComfyUI-Impact-Pack
-    python install.py
+    git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack comfyui-impact-pack
+    cd comfyui-impact-pack
+    pip install -r requirements.txt
     cd ..
 fi
 
 # Install RMBG node
 echo "Installing RMBG node..."
 if [ ! -d "ComfyUI-RMBG" ]; then
-    git clone https://github.com/Jcd1230/rembg-comfyui-node.git ComfyUI-RMBG
+    git https://github.com/1038lab/ComfyUI-RMBG
     cd ComfyUI-RMBG
-    pip install rembg
+    pip install -r requirements.txt
     cd ..
 fi
 

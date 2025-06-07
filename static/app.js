@@ -5,6 +5,7 @@ class ComfyUIApp {
         this.socket = null;
         this.processingCount = 0;
         this.totalCount = 0;
+        this.isProcessing = false;
         this.init();
     }
 
@@ -42,6 +43,10 @@ class ComfyUIApp {
 
         this.socket.on('batch_complete', (data) => {
             this.handleBatchComplete(data);
+        });
+
+        this.socket.on('batch_stopped', (data) => {
+            this.handleBatchStopped(data);
         });
 
         this.socket.on('processing_error', (data) => {
@@ -264,6 +269,14 @@ class ComfyUIApp {
         try {
             this.setLoading('processBtn', true);
             this.updateStatus('Starting processing...');
+            this.isProcessing = true;
+            
+            // Show stop button
+            const processBtn = document.getElementById('processBtn');
+            processBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Processing';
+            processBtn.classList.remove('btn-success');
+            processBtn.classList.add('btn-danger');
+            processBtn.onclick = () => this.stopProcessing();
             
             const response = await fetch('/process', {
                 method: 'POST',
@@ -283,13 +296,48 @@ class ComfyUIApp {
                 this.showProgressBar();
             } else {
                 this.showNotification('Processing Error', result.message, 'danger');
-                this.setLoading('processBtn', false);
+                this.resetProcessButton();
             }
         } catch (error) {
             console.error('Processing error:', error);
             this.showNotification('Processing Error', 'Failed to start processing', 'danger');
-            this.setLoading('processBtn', false);
+            this.resetProcessButton();
         }
+    }
+
+    async stopProcessing() {
+        try {
+            const response = await fetch('/stop', {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Stopping', result.message, 'warning');
+                this.updateStatus('Stopping batch processing...');
+                
+                // Disable the stop button while stopping
+                const processBtn = document.getElementById('processBtn');
+                processBtn.disabled = true;
+                processBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Stopping...';
+            } else {
+                this.showNotification('Error', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Stop error:', error);
+            this.showNotification('Error', 'Failed to stop processing', 'danger');
+        }
+    }
+
+    resetProcessButton() {
+        this.isProcessing = false;
+        const processBtn = document.getElementById('processBtn');
+        processBtn.innerHTML = '<i class="fas fa-play"></i> Process Images';
+        processBtn.classList.remove('btn-danger');
+        processBtn.classList.add('btn-success');
+        processBtn.disabled = false;
+        processBtn.onclick = () => this.startProcessing();
     }
 
     async clearAllResults() {
@@ -484,11 +532,23 @@ class ComfyUIApp {
 
     handleBatchComplete(data) {
         this.hideProgressBar();
-        this.setLoading('processBtn', false);
+        this.resetProcessButton();
         
         const message = `Batch complete! Processed: ${data.total_processed}, Completed: ${data.completed}, Failed: ${data.failed}`;
         this.updateStatus(message);
         this.showNotification('Batch Complete', message, 'success');
+        
+        // Refresh to show final results
+        this.refreshStatus();
+    }
+
+    handleBatchStopped(data) {
+        this.hideProgressBar();
+        this.resetProcessButton();
+        
+        const message = `Batch stopped! Completed: ${data.completed}/${data.total} images`;
+        this.updateStatus(message);
+        this.showNotification('Batch Stopped', message, 'warning');
         
         // Refresh to show final results
         this.refreshStatus();

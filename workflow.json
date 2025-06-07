@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "image": "the_input_image.jpg"
+      "image": "annoying People.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -31,7 +31,7 @@
   },
   "10": {
     "inputs": {
-      "text": "beautiful stunning outfit",
+      "text": "red shirt, black pants, white shoes",
       "clip": [
         "9",
         1
@@ -66,7 +66,7 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 1068557481135671,
+      "noise_seed": 86483938926211,
       "steps": 80,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -289,7 +289,7 @@
       "guide_size": 512,
       "guide_size_for": true,
       "max_size": 3686.400390625,
-      "seed": 640336014300307,
+      "seed": 655578409391887,
       "steps": 40,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -417,7 +417,7 @@
       "Right-shoe": true,
       "Background": false,
       "process_res": 512,
-      "mask_blur": 0,
+      "mask_blur": 4,
       "mask_offset": 0,
       "invert_output": false,
       "background": "Alpha",
