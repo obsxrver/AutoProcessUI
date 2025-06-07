@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "image": "annoying People.png"
+      "image": "ai-woman (1).jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -11,7 +11,7 @@
   "8": {
     "inputs": {
       "mask": [
-        "19",
+        "57",
         0
       ]
     },
@@ -31,7 +31,7 @@
   },
   "10": {
     "inputs": {
-      "text": "red shirt, black pants, white shoes",
+      "text": "red shirt, black pants",
       "clip": [
         "9",
         1
@@ -44,7 +44,7 @@
   },
   "11": {
     "inputs": {
-      "grow_mask_by": 64,
+      "grow_mask_by": 16,
       "pixels": [
         "1",
         0
@@ -54,7 +54,7 @@
         2
       ],
       "mask": [
-        "19",
+        "57",
         0
       ]
     },
@@ -66,7 +66,7 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 86483938926211,
+      "noise_seed": 263077514800287,
       "steps": 80,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -155,20 +155,6 @@
       "title": "GroundingDinoModelLoader (segment anything2)"
     }
   },
-  "19": {
-    "inputs": {
-      "amount": 14,
-      "device": "auto",
-      "mask": [
-        "39",
-        0
-      ]
-    },
-    "class_type": "MaskBlur+",
-    "_meta": {
-      "title": "🔧 Mask Blur"
-    }
-  },
   "20": {
     "inputs": {
       "filename_prefix": "ComfyUI",
@@ -204,25 +190,6 @@
       "title": "GroundingDinoSAM2Segment (segment anything2)"
     }
   },
-  "36": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "operation": "add",
-      "destination": [
-        "35",
-        1
-      ],
-      "source": [
-        "35",
-        1
-      ]
-    },
-    "class_type": "MaskComposite",
-    "_meta": {
-      "title": "MaskComposite"
-    }
-  },
   "39": {
     "inputs": {
       "x": 0,
@@ -233,8 +200,8 @@
         0
       ],
       "source": [
-        "36",
-        0
+        "35",
+        1
       ]
     },
     "class_type": "MaskComposite",
@@ -242,22 +209,10 @@
       "title": "MaskComposite"
     }
   },
-  "41": {
-    "inputs": {
-      "mask": [
-        "36",
-        0
-      ]
-    },
-    "class_type": "MaskPreview+",
-    "_meta": {
-      "title": "🔧 Mask Preview"
-    }
-  },
   "42": {
     "inputs": {
       "head": "fooocus_inpaint_head.pth",
-      "patch": "inpaint_v25.fooocus.patch"
+      "patch": "inpaint_v26.fooocus.patch"
     },
     "class_type": "INPAINT_LoadFooocusInpaint",
     "_meta": {
@@ -289,7 +244,7 @@
       "guide_size": 512,
       "guide_size_for": true,
       "max_size": 3686.400390625,
-      "seed": 655578409391887,
+      "seed": 246586425348629,
       "steps": 40,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -369,12 +324,12 @@
   "51": {
     "inputs": {
       "combined": false,
-      "crop_factor": 1.8,
+      "crop_factor": 1.4000000000000001,
       "bbox_fill": true,
       "drop_size": 50,
       "contour_fill": true,
       "mask": [
-        "19",
+        "57",
         0
       ]
     },
@@ -417,7 +372,7 @@
       "Right-shoe": true,
       "Background": false,
       "process_res": 512,
-      "mask_blur": 4,
+      "mask_blur": 10,
       "mask_offset": 0,
       "invert_output": false,
       "background": "Alpha",
@@ -455,6 +410,56 @@
     "class_type": "AILab_MaskPreview",
     "_meta": {
       "title": "Mask Preview (RMBG) 🎭"
+    }
+  },
+  "56": {
+    "inputs": {
+      "value": 0.25000000000000006,
+      "mask": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "ThresholdMask",
+    "_meta": {
+      "title": "ThresholdMask"
+    }
+  },
+  "57": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "56",
+        0
+      ],
+      "source": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "58": {
+    "inputs": {
+      "color": 0
+    },
+    "class_type": "ImageColorToMask",
+    "_meta": {
+      "title": "ImageColorToMask"
+    }
+  },
+  "59": {
+    "inputs": {
+      "channel": "red"
+    },
+    "class_type": "ImageToMask",
+    "_meta": {
+      "title": "Convert Image to Mask"
     }
   }
 }
