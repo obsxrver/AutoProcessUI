@@ -11,7 +11,7 @@
   "8": {
     "inputs": {
       "mask": [
-        "57",
+        "39",
         0
       ]
     },
@@ -54,7 +54,7 @@
         2
       ],
       "mask": [
-        "57",
+        "39",
         0
       ]
     },
@@ -66,7 +66,7 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 263077514800287,
+      "noise_seed": 369919738534254,
       "steps": 80,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -137,24 +137,6 @@
       "title": "CLIP Text Encode (Prompt)"
     }
   },
-  "16": {
-    "inputs": {
-      "model_name": "sam2_1_hiera_large.pt"
-    },
-    "class_type": "SAM2ModelLoader (segment anything2)",
-    "_meta": {
-      "title": "SAM2ModelLoader (segment anything2)"
-    }
-  },
-  "18": {
-    "inputs": {
-      "model_name": "GroundingDINO_SwinT_OGC (694MB)"
-    },
-    "class_type": "GroundingDinoModelLoader (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoModelLoader (segment anything2)"
-    }
-  },
   "20": {
     "inputs": {
       "filename_prefix": "ComfyUI",
@@ -168,39 +150,17 @@
       "title": "Save Image"
     }
   },
-  "35": {
-    "inputs": {
-      "prompt": "head, face, hair",
-      "threshold": 0.30000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
-    }
-  },
   "39": {
     "inputs": {
       "x": 0,
       "y": 0,
       "operation": "subtract",
       "destination": [
-        "55",
+        "57",
         0
       ],
       "source": [
-        "35",
+        "63",
         1
       ]
     },
@@ -244,7 +204,7 @@
       "guide_size": 512,
       "guide_size_for": true,
       "max_size": 3686.400390625,
-      "seed": 246586425348629,
+      "seed": 169213092180065,
       "steps": 40,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -329,7 +289,7 @@
       "drop_size": 50,
       "contour_fill": true,
       "mask": [
-        "57",
+        "39",
         0
       ]
     },
@@ -416,7 +376,7 @@
     "inputs": {
       "value": 0.25000000000000006,
       "mask": [
-        "39",
+        "55",
         0
       ]
     },
@@ -435,7 +395,7 @@
         0
       ],
       "source": [
-        "39",
+        "55",
         0
       ]
     },
@@ -460,6 +420,45 @@
     "class_type": "ImageToMask",
     "_meta": {
       "title": "Convert Image to Mask"
+    }
+  },
+  "63": {
+    "inputs": {
+      "Hat": false,
+      "Hair": true,
+      "Face": true,
+      "Sunglasses": false,
+      "Upper-clothes": false,
+      "Skirt": false,
+      "Dress": false,
+      "Belt": false,
+      "Pants": false,
+      "Left-arm": false,
+      "Right-arm": false,
+      "Left-leg": false,
+      "Right-leg": false,
+      "Bag": false,
+      "Scarf": false,
+      "Left-shoe": false,
+      "Right-shoe": false,
+      "Background": false,
+      "process_res": 512,
+      "mask_blur": 3,
+      "mask_offset": 0,
+      "invert_output": false,
+      "background": "Alpha",
+      "images": [
+        "1",
+        0
+      ],
+      "background_color": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "ClothesSegment",
+    "_meta": {
+      "title": "Clothing Segmentation (RMBG)"
     }
   }
 }
