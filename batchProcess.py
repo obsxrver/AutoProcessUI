@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import json
 import requests
@@ -50,7 +52,7 @@ class ComfyUIMultiGPU:
                 '--port', str(self.base_ports[i]),
                 '--highvram',
                 '--disable-auto-launch',
-                '--listen', '127.0.0.1'  # Localhost only
+                '--listen', '0.0.0.0'  # Allow connections from any IP
             ]
             
             print(f"Starting ComfyUI on GPU {i}, port {self.base_ports[i]}")
