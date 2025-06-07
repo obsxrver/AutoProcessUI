@@ -6,6 +6,14 @@ class ComfyUIApp {
         this.processingCount = 0;
         this.totalCount = 0;
         this.isProcessing = false;
+        
+        // Pagination state
+        this.currentPage = 1;
+        this.itemsPerPage = 24;
+        this.allResults = [];
+        this.filteredResults = [];
+        this.showUnrefined = true;
+        
         this.init();
     }
 
@@ -118,6 +126,33 @@ class ComfyUIApp {
                 const img = imageItem.querySelector('img');
                 if (img) {
                     this.showImageModal(img.src, img.alt);
+                }
+            }
+        });
+
+        // Pagination controls
+        document.getElementById('itemsPerPage').addEventListener('change', (e) => {
+            this.itemsPerPage = parseInt(e.target.value);
+            this.currentPage = 1;
+            this.renderResultsGallery();
+        });
+
+        // Show unrefined toggle
+        document.getElementById('showUnrefinedToggle').addEventListener('change', (e) => {
+            this.showUnrefined = e.target.checked;
+            this.currentPage = 1;
+            this.filterResults();
+            this.renderResultsGallery();
+        });
+
+        // Pagination clicks (delegated)
+        document.getElementById('resultsPagination').addEventListener('click', (e) => {
+            if (e.target.closest('.page-link')) {
+                e.preventDefault();
+                const page = parseInt(e.target.closest('.page-link').dataset.page);
+                if (page && !isNaN(page)) {
+                    this.currentPage = page;
+                    this.renderResultsGallery();
                 }
             }
         });
@@ -265,6 +300,7 @@ class ComfyUIApp {
     async startProcessing() {
         const positivePrompt = document.getElementById('positivePrompt').value;
         const negativePrompt = document.getElementById('negativePrompt').value;
+        const saveUnrefined = document.getElementById('saveUnrefinedToggle').checked;
 
         try {
             this.setLoading('processBtn', true);
@@ -285,7 +321,8 @@ class ComfyUIApp {
                 },
                 body: JSON.stringify({
                     positive_prompt: positivePrompt,
-                    negative_prompt: negativePrompt
+                    negative_prompt: negativePrompt,
+                    save_unrefined: saveUnrefined
                 })
             });
 
@@ -395,7 +432,9 @@ class ComfyUIApp {
 
     async downloadArchive() {
         try {
-            window.open('/download_archive', '_blank');
+            // Include current filter setting in download
+            const includeUnrefined = this.showUnrefined;
+            window.open(`/download_archive?include_unrefined=${includeUnrefined}`, '_blank');
         } catch (error) {
             console.error('Download error:', error);
             this.showNotification('Download Error', 'Failed to download archive', 'danger');
@@ -408,7 +447,7 @@ class ComfyUIApp {
             const data = await response.json();
             
             this.updateUploadGallery(data.upload_queue);
-            this.updateResultsGallery(data.results);
+            this.updateResultsWithPagination(data.results);
             this.updateStatusTable(data.status_data);
             this.updateQueueCounter(data.queue_count);
             this.updateLivePreview(data.preview_images || {});
@@ -439,11 +478,59 @@ class ComfyUIApp {
         });
     }
 
-    updateResultsGallery(results) {
+    updateResultsWithPagination(results) {
+        this.allResults = results;
+        this.filterResults();
+        this.renderResultsGallery();
+    }
+
+    filterResults() {
+        if (this.showUnrefined) {
+            this.filteredResults = this.allResults;
+        } else {
+            // Filter out unrefined images (those without "_refined" in the name)
+            this.filteredResults = this.allResults.filter(result => 
+                result.name.includes('_refined') || result.name.includes('refined-')
+            );
+        }
+    }
+
+    renderResultsGallery() {
         const gallery = document.getElementById('resultsGallery');
         gallery.innerHTML = '';
 
-        results.forEach(result => {
+        // Remove any existing results counter
+        const existingCounter = gallery.parentElement.querySelector('.results-counter');
+        if (existingCounter) {
+            existingCounter.remove();
+        }
+
+        // Show empty state if no results
+        if (this.filteredResults.length === 0) {
+            gallery.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-images"></i>
+                    <p>No images to display</p>
+                </div>
+            `;
+            this.renderPagination(0);
+            return;
+        }
+
+        // Calculate pagination
+        const totalPages = Math.ceil(this.filteredResults.length / this.itemsPerPage);
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+        const endIndex = Math.min(startIndex + this.itemsPerPage, this.filteredResults.length);
+        
+        // Add results counter
+        const resultsInfo = document.createElement('div');
+        resultsInfo.className = 'results-counter mb-3';
+        resultsInfo.textContent = `Showing ${startIndex + 1}-${endIndex} of ${this.filteredResults.length} images`;
+        gallery.parentElement.insertBefore(resultsInfo, gallery);
+        
+        // Render current page items
+        for (let i = startIndex; i < endIndex; i++) {
+            const result = this.filteredResults[i];
             const imageItem = document.createElement('div');
             imageItem.className = 'image-item clickable fade-in-up';
             imageItem.dataset.id = result.image_id;
@@ -460,7 +547,84 @@ class ComfyUIApp {
             `;
             
             gallery.appendChild(imageItem);
-        });
+        }
+
+        // Render pagination
+        this.renderPagination(totalPages);
+    }
+
+    renderPagination(totalPages) {
+        const pagination = document.getElementById('resultsPagination');
+        pagination.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        // Previous button
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${this.currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `
+            <a class="page-link" href="#" data-page="${this.currentPage - 1}" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        `;
+        pagination.appendChild(prevLi);
+
+        // Page numbers
+        const maxVisiblePages = 7;
+        let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        if (endPage - startPage < maxVisiblePages - 1) {
+            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+
+        // First page + ellipsis
+        if (startPage > 1) {
+            const firstLi = document.createElement('li');
+            firstLi.className = 'page-item';
+            firstLi.innerHTML = `<a class="page-link" href="#" data-page="1">1</a>`;
+            pagination.appendChild(firstLi);
+
+            if (startPage > 2) {
+                const ellipsisLi = document.createElement('li');
+                ellipsisLi.className = 'page-item disabled';
+                ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                pagination.appendChild(ellipsisLi);
+            }
+        }
+
+        // Page numbers
+        for (let i = startPage; i <= endPage; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === this.currentPage ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
+            pagination.appendChild(li);
+        }
+
+        // Last page + ellipsis
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                const ellipsisLi = document.createElement('li');
+                ellipsisLi.className = 'page-item disabled';
+                ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                pagination.appendChild(ellipsisLi);
+            }
+
+            const lastLi = document.createElement('li');
+            lastLi.className = 'page-item';
+            lastLi.innerHTML = `<a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>`;
+            pagination.appendChild(lastLi);
+        }
+
+        // Next button
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${this.currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `
+            <a class="page-link" href="#" data-page="${this.currentPage + 1}" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        `;
+        pagination.appendChild(nextLi);
     }
 
     updateStatusTable(statusData) {

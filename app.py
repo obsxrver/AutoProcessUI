@@ -240,16 +240,16 @@ class FlaskComfyUIApp:
                 print(f"WebSocket error for GPU {gpu_id}: {error}")
         
         def on_close(ws, close_status_code, close_msg):
-            if image_id in self.ws_connections:
-                del self.ws_connections[image_id]
+            # Use pop() to safely remove items even if they don't exist
+            self.ws_connections.pop(image_id, None)
+            
             # Clean up preview image if exists
-            if image_id in self.preview_images:
-                preview = self.preview_images[image_id]
-                if isinstance(preview, str) and preview.startswith(str(self.temp_input_dir)):
-                    try:
-                        os.remove(preview)
-                    except:
-                        pass
+            preview = self.preview_images.pop(image_id, None)
+            if preview and isinstance(preview, str) and preview.startswith(str(self.temp_input_dir)):
+                try:
+                    os.remove(preview)
+                except:
+                    pass
         
         def on_open(ws):
             print(f"WebSocket connected for GPU {gpu_id}, monitoring {image_id}")
@@ -431,7 +431,8 @@ class FlaskComfyUIApp:
     
     async def process_batch_with_live_updates(self, image_info_list: List[Dict], 
                                             positive_prompt: str, 
-                                            negative_prompt: str):
+                                            negative_prompt: str,
+                                            save_unrefined: bool):
         """Process batch of images with live updates via SocketIO"""
         # Reset stop flag at start of processing
         self.stop_processing = False
@@ -489,7 +490,7 @@ class FlaskComfyUIApp:
                 
                 task = self.process_single_image_with_socketio_updates(
                     session, gpu_id, file_path, original_name, 
-                    positive_prompt, negative_prompt, image_id
+                    positive_prompt, negative_prompt, image_id, save_unrefined
                 )
                 tasks.append(task)
             
@@ -508,8 +509,9 @@ class FlaskComfyUIApp:
                             except Exception as e:
                                 print(f"Error cancelling task: {e}")
                     
-                    # Close websocket connections
-                    for ws in self.ws_connections.values():
+                    # Close websocket connections - create a copy to avoid modification during iteration
+                    ws_list = list(self.ws_connections.values())
+                    for ws in ws_list:
                         try:
                             ws.close()
                         except:
@@ -562,11 +564,31 @@ class FlaskComfyUIApp:
                         'total': len(tasks)
                     })
         
+        # Clean up all websocket connections after batch completion
+        print(f"Cleaning up {len(self.ws_connections)} websocket connections...")
+        ws_list = list(self.ws_connections.values())
+        for ws in ws_list:
+            try:
+                ws.close()
+            except Exception as e:
+                print(f"Error closing websocket: {e}")
+        self.ws_connections.clear()
+        
+        # Clean up any remaining preview images
+        preview_items = list(self.preview_images.items())  # Create a copy of items
+        for image_id, preview in preview_items:
+            if isinstance(preview, str) and preview.startswith(str(self.temp_input_dir)):
+                try:
+                    os.remove(preview)
+                except:
+                    pass
+        self.preview_images.clear()  # Clear all at once instead of deleting one by one
+        
         return all_results
     
     async def process_single_image_with_socketio_updates(self, session, gpu_id, image_path, 
                                                original_name, positive_prompt, negative_prompt, 
-                                               image_id):
+                                               image_id, save_unrefined: bool):
         """Process a single image and provide SocketIO status updates"""
         server_url = f"http://localhost:{self.orchestrator.base_ports[gpu_id]}"
         
@@ -597,6 +619,15 @@ class FlaskComfyUIApp:
                     'status': 'failed',
                     'error': 'Upload failed'
                 })
+                
+                # Clean up websocket connection if it exists (though unlikely at this point)
+                ws = self.ws_connections.pop(image_id, None)
+                if ws:
+                    try:
+                        ws.close()
+                    except Exception as e:
+                        print(f"Error closing websocket for upload failed {image_id}: {e}")
+                
                 return None
             
             # Modify workflow with custom prompts
@@ -639,6 +670,15 @@ class FlaskComfyUIApp:
                     'status': 'failed',
                     'error': 'Failed to queue prompt'
                 })
+                
+                # Clean up websocket connection for failed prompt queue
+                ws = self.ws_connections.pop(image_id, None)
+                if ws:
+                    try:
+                        ws.close()
+                    except Exception as e:
+                        print(f"Error closing websocket for failed prompt queue {image_id}: {e}")
+                
                 return None
             
             prompt_id = result['prompt_id']
@@ -683,23 +723,24 @@ class FlaskComfyUIApp:
                         # First output (node 20)
                         if "20" in outputs and 'images' in outputs["20"]:
                             for img_info in outputs["20"]['images']:
-                                filename = img_info['filename']
-                                subfolder = img_info.get('subfolder', '')
-                                
-                                # Download image
-                                if subfolder:
-                                    url = f"{server_url}/view?filename={filename}&subfolder={subfolder}&type=output"
-                                else:
-                                    url = f"{server_url}/view?filename={filename}&type=output"
-                                
-                                async with session.get(url) as resp:
-                                    if resp.status == 200:
-                                        content = await resp.read()
-                                        
-                                        output_path = get_unique_filename(self.output_dir / f"{base_name}_.png")
-                                        with open(output_path, 'wb') as f:
-                                            f.write(content)
-                                        output_files.append(str(output_path))
+                                if save_unrefined:  # Only save if user wants unrefined images
+                                    filename = img_info['filename']
+                                    subfolder = img_info.get('subfolder', '')
+                                    
+                                    # Download image
+                                    if subfolder:
+                                        url = f"{server_url}/view?filename={filename}&subfolder={subfolder}&type=output"
+                                    else:
+                                        url = f"{server_url}/view?filename={filename}&type=output"
+                                    
+                                    async with session.get(url) as resp:
+                                        if resp.status == 200:
+                                            content = await resp.read()
+                                            
+                                            output_path = get_unique_filename(self.output_dir / f"{base_name}_.png")
+                                            with open(output_path, 'wb') as f:
+                                                f.write(content)
+                                            output_files.append(str(output_path))
                         
                         # Second output (node 52 - refined)
                         if "52" in outputs and 'images' in outputs["52"]:
@@ -730,6 +771,22 @@ class FlaskComfyUIApp:
                             'progress': 100
                         })
                         
+                        # Clean up websocket connection for this specific image
+                        ws = self.ws_connections.pop(image_id, None)
+                        if ws:
+                            try:
+                                ws.close()
+                            except Exception as e:
+                                print(f"Error closing websocket for image {image_id}: {e}")
+                        
+                        # Clean up preview image for this specific image
+                        preview = self.preview_images.pop(image_id, None)
+                        if preview and isinstance(preview, str) and preview.startswith(str(self.temp_input_dir)):
+                            try:
+                                os.remove(preview)
+                            except:
+                                pass
+                        
                         return {
                             'image_id': image_id,
                             'input_path': image_path,
@@ -743,6 +800,23 @@ class FlaskComfyUIApp:
                             'image_id': image_id,
                             'status': 'error'
                         })
+                        
+                        # Clean up websocket connection for this failed image
+                        ws = self.ws_connections.pop(image_id, None)
+                        if ws:
+                            try:
+                                ws.close()
+                            except Exception as e:
+                                print(f"Error closing websocket for failed image {image_id}: {e}")
+                        
+                        # Clean up preview image for this failed image
+                        preview = self.preview_images.pop(image_id, None)
+                        if preview and isinstance(preview, str) and preview.startswith(str(self.temp_input_dir)):
+                            try:
+                                os.remove(preview)
+                            except:
+                                pass
+                        
                         return None
                     else:
                         # Update progress during processing
@@ -770,6 +844,23 @@ class FlaskComfyUIApp:
                 'status': 'error',
                 'error': str(e)
             })
+            
+            # Clean up websocket connection for this exception case
+            ws = self.ws_connections.pop(image_id, None)
+            if ws:
+                try:
+                    ws.close()
+                except Exception as cleanup_error:
+                    print(f"Error closing websocket for exception case {image_id}: {cleanup_error}")
+            
+            # Clean up preview image for this exception case
+            preview = self.preview_images.pop(image_id, None)
+            if preview and isinstance(preview, str) and preview.startswith(str(self.temp_input_dir)):
+                try:
+                    os.remove(preview)
+                except:
+                    pass
+            
             return None
     
     def create_archive(self, results: List[Dict]) -> str:
@@ -834,6 +925,7 @@ def process_images():
     data = request.get_json()
     positive_prompt = data.get('positive_prompt', batch_app.default_positive)
     negative_prompt = data.get('negative_prompt', batch_app.default_negative)
+    save_unrefined = data.get('save_unrefined', True)  # Default to True for backward compatibility
     
     if not batch_app.upload_queue:
         return jsonify({"status": "error", "message": "No images in upload queue"})
@@ -868,7 +960,7 @@ def process_images():
         try:
             results = loop.run_until_complete(
                 batch_app.process_batch_with_live_updates(
-                    image_info_list, positive_prompt, negative_prompt
+                    image_info_list, positive_prompt, negative_prompt, save_unrefined
                 )
             )
             
@@ -929,7 +1021,27 @@ def download_archive():
     if not batch_app.results_cache:
         return jsonify({"status": "error", "message": "No results to archive"})
     
-    archive_path = batch_app.create_archive(list(batch_app.results_cache.values()))
+    # Check if we should include unrefined images
+    include_unrefined = request.args.get('include_unrefined', 'true').lower() == 'true'
+    
+    # Filter results if needed
+    results_to_archive = []
+    for result in batch_app.results_cache.values():
+        filtered_paths = []
+        for output_path in result.get('output_paths', []):
+            # Check if this is a refined image or if we're including all images
+            if include_unrefined or '_refined' in output_path or 'refined-' in output_path:
+                filtered_paths.append(output_path)
+        
+        if filtered_paths:
+            result_copy = result.copy()
+            result_copy['output_paths'] = filtered_paths
+            results_to_archive.append(result_copy)
+    
+    if not results_to_archive:
+        return jsonify({"status": "error", "message": "No images match the filter criteria"})
+    
+    archive_path = batch_app.create_archive(results_to_archive)
     
     return send_file(archive_path, as_attachment=True, download_name=Path(archive_path).name)
 

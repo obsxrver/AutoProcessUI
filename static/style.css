@@ -432,3 +432,69 @@ body {
 #imageModal .modal-body .btn:focus {
     box-shadow: none;
 }
+
+/* Pagination styling */
+.pagination {
+    margin-top: 20px;
+}
+
+.pagination .page-link {
+    color: #667eea;
+    border-color: #dee2e6;
+    padding: 0.5rem 0.75rem;
+}
+
+.pagination .page-link:hover {
+    color: #5a6fd8;
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: transparent;
+    color: white;
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #6c757d;
+    background-color: #fff;
+    border-color: #dee2e6;
+}
+
+/* Form controls in header */
+.card-header .form-select {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #333;
+}
+
+.card-header .form-check-input:checked {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+/* Gap utility for flexbox */
+.gap-2 {
+    gap: 0.5rem;
+}
+
+/* Results counter */
+.results-counter {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-left: 1rem;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
