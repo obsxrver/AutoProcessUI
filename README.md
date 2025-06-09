@@ -99,12 +99,12 @@ The application intelligently manages preview requests to prevent overloading th
 
 - **Per-GPU Limits**: Maximum of 2 concurrent preview requests per GPU/ComfyUI server
 - **Smart Distribution**: Automatically distributes preview requests across available GPUs
-- **Queue Management**: Queues excess requests and processes them as slots become available
+- **Drop Policy**: Excess preview requests are dropped instead of queued to prioritize responsiveness
 
 ### Preview Controls
 
 - **Toggle Control**: Enable/disable live previews entirely
-- **Visual Feedback**: Shows queue status and active preview counts
+- **Visual Feedback**: Shows active preview counts and dropped preview statistics
 - **Persistent Settings**: Saves your preview preferences automatically
 
 ### Benefits

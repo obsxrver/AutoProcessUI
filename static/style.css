@@ -520,8 +520,8 @@ body {
     box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.25);
 }
 
-/* Preview queue indicator */
-.preview-queue-indicator {
+/* Preview status indicator */
+.preview-status-indicator {
     text-align: center;
     padding: 0.75rem;
     background-color: rgba(23, 162, 184, 0.1);
@@ -531,5 +531,11 @@ body {
     margin-bottom: 1rem;
     font-size: 0.85rem;
     font-weight: 500;
-    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Highlight when previews are being dropped */
+.preview-status-indicator:has-text("dropped") {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: #856404;
+    border-color: rgba(255, 193, 7, 0.2);
 }

@@ -18,8 +18,8 @@ class ComfyUIApp {
         this.previewsEnabled = true;
         this.pendingPreviewsByGpu = new Map(); // Track pending requests per GPU
         this.maxPendingPerGpu = 2; // Maximum pending previews per GPU server
-        this.previewRequestQueue = [];
         this.imageGpuMapping = new Map(); // Track which GPU each image is being processed on
+        this.droppedPreviews = 0; // Track dropped preview count for UI feedback
         
         this.init();
     }
@@ -97,8 +97,8 @@ class ComfyUIApp {
         }
         
         if (gpuId === null || this.shouldThrottlePreview(gpuId)) {
-            // Add to queue with GPU info
-            this.previewRequestQueue.push({...requestData, gpu_id: gpuId || 0});
+            // Drop the preview request instead of queuing
+            this.droppedPreviews++;
             this.updatePreviewQueueStatus();
             return;
         }
@@ -113,6 +113,7 @@ class ComfyUIApp {
         // Increment pending count for this GPU
         const currentPending = this.pendingPreviewsByGpu.get(gpuId) || 0;
         this.pendingPreviewsByGpu.set(gpuId, currentPending + 1);
+        this.updatePreviewQueueStatus();
         
         // Create new image element for loading
         const newImg = document.createElement('img');
@@ -123,7 +124,7 @@ class ComfyUIApp {
             // Decrement pending count for this GPU
             const pending = this.pendingPreviewsByGpu.get(gpuId) || 1;
             this.pendingPreviewsByGpu.set(gpuId, Math.max(0, pending - 1));
-            this.processPreviewQueue();
+            this.updatePreviewQueueStatus();
         };
         
         newImg.onload = () => {
@@ -152,28 +153,7 @@ class ComfyUIApp {
         }
     }
 
-    processPreviewQueue() {
-        // Process queued preview requests
-        const processedIndexes = [];
-        
-        for (let i = 0; i < this.previewRequestQueue.length; i++) {
-            const requestData = this.previewRequestQueue[i];
-            const gpuId = requestData.gpu_id || 0;
-            
-            if (!this.shouldThrottlePreview(gpuId)) {
-                this.executePreviewRequest(requestData);
-                processedIndexes.push(i);
-            }
-        }
-        
-        // Remove processed items from queue (in reverse order to maintain indexes)
-        for (let i = processedIndexes.length - 1; i >= 0; i--) {
-            this.previewRequestQueue.splice(processedIndexes[i], 1);
-        }
-        
-        // Update UI to show queue status
-        this.updatePreviewQueueStatus();
-    }
+
 
     updatePreviewQueueStatus() {
         const previewGallery = document.getElementById('livePreview');
@@ -185,32 +165,41 @@ class ComfyUIApp {
             totalPending += count;
         }
         
-        // Show queue indicator if there are queued items or pending requests
-        if (this.previewRequestQueue.length > 0 || totalPending > 0) {
-            previewGallery.classList.add('preview-queued');
+        // Show status indicator if there are pending requests or dropped previews
+        if (totalPending > 0 || this.droppedPreviews > 0) {
+            previewGallery.classList.add('preview-status');
             
-            // Add or update queue indicator
-            let queueIndicator = previewGallery.querySelector('.preview-queue-indicator');
-            if (!queueIndicator) {
-                queueIndicator = document.createElement('div');
-                queueIndicator.className = 'preview-queue-indicator';
-                previewGallery.prepend(queueIndicator);
+            // Add or update status indicator
+            let statusIndicator = previewGallery.querySelector('.preview-status-indicator');
+            if (!statusIndicator) {
+                statusIndicator = document.createElement('div');
+                statusIndicator.className = 'preview-status-indicator';
+                previewGallery.prepend(statusIndicator);
             }
             
-            const queuedText = this.previewRequestQueue.length > 0 
-                ? `${this.previewRequestQueue.length} queued` 
-                : '';
             const pendingText = totalPending > 0 
                 ? `${totalPending} loading` 
                 : '';
+            const droppedText = this.droppedPreviews > 0 
+                ? `${this.droppedPreviews} dropped` 
+                : '';
             
-            const statusParts = [queuedText, pendingText].filter(Boolean);
-            queueIndicator.textContent = `⏳ ${statusParts.join(', ')} (max 2 per GPU)`;
+            const statusParts = [pendingText, droppedText].filter(Boolean);
+            statusIndicator.textContent = `⏳ ${statusParts.join(', ')} (max 2 per GPU)`;
+            
+            // Reset dropped counter periodically
+            if (this.droppedPreviews > 0 && !this.dropResetTimer) {
+                this.dropResetTimer = setTimeout(() => {
+                    this.droppedPreviews = 0;
+                    this.dropResetTimer = null;
+                    this.updatePreviewQueueStatus();
+                }, 5000);
+            }
         } else {
-            previewGallery.classList.remove('preview-queued');
-            const queueIndicator = previewGallery.querySelector('.preview-queue-indicator');
-            if (queueIndicator) {
-                queueIndicator.remove();
+            previewGallery.classList.remove('preview-status');
+            const statusIndicator = previewGallery.querySelector('.preview-status-indicator');
+            if (statusIndicator) {
+                statusIndicator.remove();
             }
         }
     }
@@ -371,10 +360,14 @@ class ComfyUIApp {
                     if (previewGallery) {
                         previewGallery.innerHTML = '<div class="empty-state"><i class="fas fa-eye-slash"></i><p>Live previews disabled</p></div>';
                     }
-                    // Clear preview queue and pending requests
-                    this.previewRequestQueue = [];
+                    // Clear pending requests and counters
                     this.pendingPreviewsByGpu.clear();
                     this.imageGpuMapping.clear();
+                    this.droppedPreviews = 0;
+                    if (this.dropResetTimer) {
+                        clearTimeout(this.dropResetTimer);
+                        this.dropResetTimer = null;
+                    }
                 }
                 
                 this.showNotification(
