@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "image": "ai-woman (1).jpg"
+      "image": "example.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -11,7 +11,7 @@
   "8": {
     "inputs": {
       "mask": [
-        "39",
+        "19",
         0
       ]
     },
@@ -44,7 +44,7 @@
   },
   "11": {
     "inputs": {
-      "grow_mask_by": 24,
+      "grow_mask_by": 64,
       "pixels": [
         "1",
         0
@@ -54,7 +54,7 @@
         2
       ],
       "mask": [
-        "39",
+        "19",
         0
       ]
     },
@@ -66,8 +66,8 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 1047446436831824,
-      "steps": 80,
+      "noise_seed": 625436357918852,
+      "steps": 60,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
@@ -126,7 +126,7 @@
   },
   "15": {
     "inputs": {
-      "text": "blurry, low quality, worst quality, wrong anatomy, censored, clothes",
+      "text": "blurry, low quality, worst quality, wrong anatomy, censored, clothes, public hair",
       "clip": [
         "9",
         1
@@ -135,6 +135,60 @@
     "class_type": "CLIPTextEncode",
     "_meta": {
       "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "16": {
+    "inputs": {
+      "model_name": "sam2_1_hiera_large.pt"
+    },
+    "class_type": "SAM2ModelLoader (segment anything2)",
+    "_meta": {
+      "title": "SAM2ModelLoader (segment anything2)"
+    }
+  },
+  "17": {
+    "inputs": {
+      "prompt": "garment",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "18": {
+    "inputs": {
+      "model_name": "GroundingDINO_SwinT_OGC (694MB)"
+    },
+    "class_type": "GroundingDinoModelLoader (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoModelLoader (segment anything2)"
+    }
+  },
+  "19": {
+    "inputs": {
+      "amount": 14,
+      "device": "auto",
+      "mask": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "MaskBlur+",
+    "_meta": {
+      "title": "🔧 Mask Blur"
     }
   },
   "20": {
@@ -150,17 +204,92 @@
       "title": "Save Image"
     }
   },
-  "39": {
+  "28": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "String (Multiline)"
+    }
+  },
+  "29": {
+    "inputs": {
+      "prompt": "pants",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "30": {
+    "inputs": {
+      "prompt": "vest",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "31": {
+    "inputs": {
+      "prompt": "shirt",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "32": {
     "inputs": {
       "x": 0,
       "y": 0,
-      "operation": "subtract",
+      "operation": "add",
       "destination": [
-        "57",
-        0
+        "17",
+        1
       ],
       "source": [
-        "63",
+        "29",
         1
       ]
     },
@@ -169,10 +298,154 @@
       "title": "MaskComposite"
     }
   },
+  "33": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "30",
+        1
+      ],
+      "source": [
+        "31",
+        1
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "34": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "32",
+        0
+      ],
+      "source": [
+        "33",
+        0
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "35": {
+    "inputs": {
+      "prompt": "head, face, hair",
+      "threshold": 0.20000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "36": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "35",
+        1
+      ],
+      "source": [
+        "35",
+        1
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "37": {
+    "inputs": {
+      "prompt": "skin",
+      "threshold": 0.20000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "39": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "subtract",
+      "destination": [
+        "34",
+        0
+      ],
+      "source": [
+        "36",
+        0
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "40": {
+    "inputs": {
+      "mask": [
+        "34",
+        0
+      ]
+    },
+    "class_type": "MaskPreview+",
+    "_meta": {
+      "title": "🔧 Mask Preview"
+    }
+  },
+  "41": {
+    "inputs": {
+      "mask": [
+        "36",
+        0
+      ]
+    },
+    "class_type": "MaskPreview+",
+    "_meta": {
+      "title": "🔧 Mask Preview"
+    }
+  },
   "42": {
     "inputs": {
       "head": "fooocus_inpaint_head.pth",
-      "patch": "inpaint_v26.fooocus.patch"
+      "patch": "inpaint_v25.fooocus.patch"
     },
     "class_type": "INPAINT_LoadFooocusInpaint",
     "_meta": {
@@ -201,16 +474,16 @@
   },
   "46": {
     "inputs": {
-      "guide_size": 512,
-      "guide_size_for": true,
-      "max_size": 3686.400390625,
-      "seed": 449652320314489,
-      "steps": 40,
-      "cfg": 4,
+      "guide_size": 1024,
+      "guide_size_for": false,
+      "max_size": 2048,
+      "seed": 463873884925013,
+      "steps": 60,
+      "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
-      "scheduler": "normal",
+      "scheduler": "karras",
       "denoise": 0.30000000000000004,
-      "feather": 3,
+      "feather": 8,
       "noise_mask": true,
       "force_inpaint": true,
       "wildcard": "",
@@ -289,7 +562,7 @@
       "drop_size": 50,
       "contour_fill": true,
       "mask": [
-        "39",
+        "19",
         0
       ]
     },
@@ -309,138 +582,6 @@
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
-    }
-  },
-  "53": {
-    "inputs": {
-      "Hat": true,
-      "Hair": false,
-      "Face": false,
-      "Sunglasses": false,
-      "Upper-clothes": true,
-      "Skirt": true,
-      "Dress": true,
-      "Belt": true,
-      "Pants": true,
-      "Left-arm": false,
-      "Right-arm": false,
-      "Left-leg": false,
-      "Right-leg": false,
-      "Bag": true,
-      "Scarf": true,
-      "Left-shoe": true,
-      "Right-shoe": true,
-      "Background": false,
-      "process_res": 512,
-      "mask_blur": 10,
-      "mask_offset": 0,
-      "invert_output": false,
-      "background": "Alpha",
-      "images": [
-        "1",
-        0
-      ],
-      "background_color": [
-        "54",
-        0
-      ]
-    },
-    "class_type": "ClothesSegment",
-    "_meta": {
-      "title": "Clothing Segmentation (RMBG)"
-    }
-  },
-  "54": {
-    "inputs": {
-      "preset": "black",
-      "color": ""
-    },
-    "class_type": "AILab_ColorInput",
-    "_meta": {
-      "title": "Color Input (RMBG) 🎨"
-    }
-  },
-  "55": {
-    "inputs": {
-      "mask": [
-        "53",
-        1
-      ]
-    },
-    "class_type": "AILab_MaskPreview",
-    "_meta": {
-      "title": "Mask Preview (RMBG) 🎭"
-    }
-  },
-  "56": {
-    "inputs": {
-      "value": 0.30000000000000004,
-      "mask": [
-        "55",
-        0
-      ]
-    },
-    "class_type": "ThresholdMask",
-    "_meta": {
-      "title": "ThresholdMask"
-    }
-  },
-  "57": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "operation": "add",
-      "destination": [
-        "56",
-        0
-      ],
-      "source": [
-        "55",
-        0
-      ]
-    },
-    "class_type": "MaskComposite",
-    "_meta": {
-      "title": "MaskComposite"
-    }
-  },
-  "63": {
-    "inputs": {
-      "Hat": false,
-      "Hair": true,
-      "Face": true,
-      "Sunglasses": false,
-      "Upper-clothes": false,
-      "Skirt": false,
-      "Dress": false,
-      "Belt": false,
-      "Pants": false,
-      "Left-arm": false,
-      "Right-arm": false,
-      "Left-leg": false,
-      "Right-leg": false,
-      "Bag": false,
-      "Scarf": false,
-      "Left-shoe": false,
-      "Right-shoe": false,
-      "Background": false,
-      "process_res": 512,
-      "mask_blur": 3,
-      "mask_offset": 0,
-      "invert_output": false,
-      "background": "Alpha",
-      "images": [
-        "1",
-        0
-      ],
-      "background_color": [
-        "54",
-        0
-      ]
-    },
-    "class_type": "ClothesSegment",
-    "_meta": {
-      "title": "Clothing Segmentation (RMBG)"
     }
   }
 }
