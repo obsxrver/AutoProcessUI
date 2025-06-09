@@ -153,8 +153,6 @@ class ComfyUIApp {
         }
     }
 
-
-
     updatePreviewQueueStatus() {
         const previewGallery = document.getElementById('livePreview');
         if (!previewGallery) return;
@@ -354,20 +352,34 @@ class ComfyUIApp {
                 this.previewsEnabled = e.target.checked;
                 this.saveUserPreferences();
                 
+                const previewGallery = document.getElementById('livePreview');
+                
                 if (!this.previewsEnabled) {
-                    // Clear existing previews
-                    const previewGallery = document.getElementById('livePreview');
+                    // Clear existing previews when disabling
                     if (previewGallery) {
-                        previewGallery.innerHTML = '<div class="empty-state"><i class="fas fa-eye-slash"></i><p>Live previews disabled</p></div>';
+                        // Only show disabled message if there are no active previews
+                        const hasActivePreviews = previewGallery.querySelector('[data-preview-id]');
+                        if (!hasActivePreviews) {
+                            previewGallery.innerHTML = '<div class="empty-state"><i class="fas fa-eye-slash"></i><p>Live previews disabled</p></div>';
+                        }
                     }
                     // Clear pending requests and counters
                     this.pendingPreviewsByGpu.clear();
-                    this.imageGpuMapping.clear();
                     this.droppedPreviews = 0;
                     if (this.dropResetTimer) {
                         clearTimeout(this.dropResetTimer);
                         this.dropResetTimer = null;
                     }
+                } else {
+                    // Clear the disabled message when enabling
+                    if (previewGallery) {
+                        const emptyState = previewGallery.querySelector('.empty-state');
+                        if (emptyState && emptyState.textContent.includes('disabled')) {
+                            previewGallery.innerHTML = '';
+                        }
+                    }
+                    // Refresh to get any current previews
+                    this.refreshStatus();
                 }
                 
                 this.showNotification(
@@ -921,18 +933,35 @@ class ComfyUIApp {
             this.imageGpuMapping.set(data.image_id, data.gpu);
         }
 
-        // Update status table if image exists
-        const rows = document.querySelectorAll('#statusTableBody tr');
-        rows.forEach(row => {
-            const filename = row.cells[0].textContent;
-            if (filename === data.filename) {
-                const statusBadge = row.cells[1].querySelector('.badge');
-                const statusClass = `status-${data.status.toLowerCase()}`;
-                statusBadge.className = `badge ${statusClass}`;
-                statusBadge.textContent = data.status;
-                row.cells[3].textContent = `${data.progress || 0}%`;
+        // Update status table by image_id first, then fallback to filename
+        let row = document.querySelector(`#statusTableBody tr[data-image-id="${data.image_id}"]`);
+        
+        // If not found by image_id and we have a filename, try to find by filename
+        if (!row && data.filename) {
+            const rows = document.querySelectorAll('#statusTableBody tr');
+            rows.forEach(r => {
+                if (r.cells[0].textContent === data.filename) {
+                    row = r;
+                    // Also set the data-image-id attribute for future updates
+                    if (data.image_id) {
+                        row.dataset.imageId = data.image_id;
+                    }
+                }
+            });
+        }
+        
+        if (row) {
+            const statusBadge = row.cells[1].querySelector('.badge');
+            const statusClass = `status-${data.status.toLowerCase()}`;
+            statusBadge.className = `badge ${statusClass}`;
+            statusBadge.textContent = data.status;
+            row.cells[3].textContent = `${data.progress || 0}%`;
+            
+            // Update GPU column if provided
+            if (data.gpu !== undefined) {
+                row.cells[2].textContent = data.gpu;
             }
-        });
+        }
 
         // Add processing indicator if processing
         if (data.status === 'processing') {
@@ -1101,11 +1130,26 @@ class ComfyUIApp {
 
     updateLivePreview(previewImages) {
         const previewGallery = document.getElementById('livePreview');
-        if (!previewGallery || !this.previewsEnabled) {
-            if (previewGallery && !this.previewsEnabled) {
+        if (!previewGallery) {
+            return;
+        }
+        
+        // Only show disabled message if previews are disabled AND there are no preview images
+        if (!this.previewsEnabled) {
+            // Check if we need to clear the gallery
+            const hasContent = previewGallery.querySelector('[data-preview-id]') || 
+                              (Object.keys(previewImages).length > 0);
+            
+            if (!hasContent) {
                 previewGallery.innerHTML = '<div class="empty-state"><i class="fas fa-eye-slash"></i><p>Live previews disabled</p></div>';
             }
             return;
+        }
+        
+        // Clear the disabled message if it exists when previews are enabled
+        const emptyState = previewGallery.querySelector('.empty-state');
+        if (emptyState && emptyState.textContent.includes('disabled')) {
+            emptyState.remove();
         }
 
         // Get existing preview items

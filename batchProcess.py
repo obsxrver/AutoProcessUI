@@ -101,10 +101,15 @@ class ComfyUIMultiGPU:
     async def upload_image_async(self, session: aiohttp.ClientSession, 
                                 server_url: str, image_path: str, original_filename: str) -> Dict:
         """Upload an image to a ComfyUI server's /upload/image API endpoint."""
+        file_handle = None
         try:
             if not os.path.exists(image_path):
                 print(f"Error: Source file not found for API upload: {image_path}")
                 return None
+
+            # Get file size for debugging
+            file_size = os.path.getsize(image_path)
+            print(f"Uploading {original_filename} ({file_size} bytes) from {image_path}")
 
             form_data = aiohttp.FormData()
             
@@ -112,9 +117,12 @@ class ComfyUIMultiGPU:
             if content_type is None:
                 content_type = 'application/octet-stream' # Fallback
 
+            # Open file in binary mode
+            file_handle = open(image_path, 'rb')
+            
             form_data.add_field(
                 'image',
-                open(image_path, 'rb'),
+                file_handle,
                 filename=original_filename, # ComfyUI uses this to suggest a name
                 content_type=content_type
             )
@@ -124,7 +132,7 @@ class ComfyUIMultiGPU:
             # The ComfyUI /upload/image API endpoint
             upload_url = f"{server_url}/upload/image"
             
-            print(f"Uploading {original_filename} (from {image_path}) to {upload_url} via API")
+            print(f"Uploading to {upload_url} via API")
 
             async with session.post(upload_url, data=form_data) as resp:
                 if resp.status == 200:
@@ -142,6 +150,10 @@ class ComfyUIMultiGPU:
             import traceback
             traceback.print_exc()
             return None
+        finally:
+            # Always close the file handle
+            if file_handle:
+                file_handle.close()
     
     async def queue_prompt_async(self, session: aiohttp.ClientSession, 
                                 server_url: str, prompt: Dict[str, Any]) -> Dict:

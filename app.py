@@ -135,6 +135,9 @@ class FlaskComfyUIApp:
                 else:
                     raise ValueError("ComfyUI path not found. Please set COMFYUI_PATH environment variable.")
             
+            print(f"Using ComfyUI path: {comfyui_path}")
+            print(f"Initializing with {num_gpus} GPU(s)")
+            
             self.orchestrator = ComfyUIMultiGPU(
                 workflow_path="workflow.json",
                 num_gpus=num_gpus,
@@ -143,7 +146,23 @@ class FlaskComfyUIApp:
             )
             # Start ComfyUI instances
             self.comfyui_processes = self.orchestrator.start_comfyui_instances()
-            time.sleep(10)  # Wait for servers to initialize
+            
+            # Wait for servers to initialize
+            print("Waiting for ComfyUI servers to initialize...")
+            time.sleep(10)
+            
+            # Verify all servers are running
+            all_running = True
+            for i, port in enumerate(self.orchestrator.base_ports):
+                server_url = f"http://localhost:{port}"
+                if not self.orchestrator.check_server(server_url):
+                    print(f"Warning: ComfyUI server on port {port} (GPU {i}) is not responding")
+                    all_running = False
+                else:
+                    print(f"✓ ComfyUI server on port {port} (GPU {i}) is ready")
+            
+            if not all_running:
+                print("Warning: Not all ComfyUI servers are running properly")
     
     def monitor_progress_websocket(self, gpu_id, client_id, image_id):
         """Monitor ComfyUI progress via websocket for live previews"""
@@ -485,7 +504,8 @@ class FlaskComfyUIApp:
                     'image_id': image_id,
                     'status': 'queued',
                     'progress': 0,
-                    'filename': original_name
+                    'filename': original_name,
+                    'gpu': gpu_id
                 })
                 
                 task = self.process_single_image_with_socketio_updates(
@@ -593,16 +613,41 @@ class FlaskComfyUIApp:
         server_url = f"http://localhost:{self.orchestrator.base_ports[gpu_id]}"
         
         try:
+            # Check if server is healthy before processing
+            try:
+                async with session.get(f"{server_url}/system_stats", timeout=5) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"Server not healthy: status {resp.status}")
+            except Exception as e:
+                error_msg = f"ComfyUI server on GPU {gpu_id} is not responding: {str(e)}"
+                print(f"Error: {error_msg}")
+                
+                self.processing_status[image_id]['status'] = 'failed'
+                self.processing_status[image_id]['error'] = error_msg
+                
+                socketio.emit('status_update', {
+                    'image_id': image_id,
+                    'status': 'failed',
+                    'error': error_msg,
+                    'gpu': gpu_id,
+                    'filename': original_name
+                })
+                
+                return None
+            
             # Update status
             self.processing_status[image_id].update({
                 'status': 'uploading',
-                'progress': 0
+                'progress': 0,
+                'filename': original_name  # Ensure filename is always present
             })
             
             socketio.emit('status_update', {
                 'image_id': image_id,
                 'status': 'uploading',
-                'progress': 0
+                'progress': 0,
+                'gpu': gpu_id,
+                'filename': original_name
             })
             
             # Upload image to server using the API
@@ -611,13 +656,18 @@ class FlaskComfyUIApp:
             )
             
             if not upload_result or 'name' not in upload_result:
+                error_msg = f"Upload failed for {original_name} via API"
+                print(f"Error: {error_msg} - Result: {upload_result}")
+                
                 self.processing_status[image_id]['status'] = 'failed'
-                self.processing_status[image_id]['error'] = f"Upload failed via API"
+                self.processing_status[image_id]['error'] = error_msg
                 
                 socketio.emit('status_update', {
                     'image_id': image_id,
                     'status': 'failed',
-                    'error': 'Upload failed'
+                    'error': error_msg,
+                    'gpu': gpu_id,
+                    'filename': original_name
                 })
                 
                 # Clean up websocket connection if it exists (though unlikely at this point)
@@ -646,7 +696,9 @@ class FlaskComfyUIApp:
             socketio.emit('status_update', {
                 'image_id': image_id,
                 'status': 'processing',
-                'progress': 10
+                'progress': 10,
+                'gpu': gpu_id,
+                'filename': original_name
             })
             
             # Generate client ID for tracking
@@ -664,11 +716,18 @@ class FlaskComfyUIApp:
                 result = await resp.json()
             
             if not result or 'prompt_id' not in result:
+                error_msg = 'Failed to queue prompt'
+                print(f"Error: {error_msg} for {original_name} - Result: {result}")
+                
                 self.processing_status[image_id]['status'] = 'failed'
+                self.processing_status[image_id]['error'] = error_msg
+                
                 socketio.emit('status_update', {
                     'image_id': image_id,
                     'status': 'failed',
-                    'error': 'Failed to queue prompt'
+                    'error': error_msg,
+                    'gpu': gpu_id,
+                    'filename': original_name
                 })
                 
                 # Clean up websocket connection for failed prompt queue
@@ -698,7 +757,9 @@ class FlaskComfyUIApp:
                         socketio.emit('status_update', {
                             'image_id': image_id,
                             'status': 'downloading',
-                            'progress': 100
+                            'progress': 100,
+                            'gpu': gpu_id,
+                            'filename': original_name
                         })
                         
                         # Get output images
@@ -768,7 +829,9 @@ class FlaskComfyUIApp:
                         socketio.emit('status_update', {
                             'image_id': image_id,
                             'status': 'completed',
-                            'progress': 100
+                            'progress': 100,
+                            'gpu': gpu_id,
+                            'filename': original_name
                         })
                         
                         # Clean up websocket connection for this specific image
@@ -798,7 +861,9 @@ class FlaskComfyUIApp:
                         self.processing_status[image_id]['status'] = 'error'
                         socketio.emit('status_update', {
                             'image_id': image_id,
-                            'status': 'error'
+                            'status': 'error',
+                            'gpu': gpu_id,
+                            'filename': original_name
                         })
                         
                         # Clean up websocket connection for this failed image
@@ -830,19 +895,28 @@ class FlaskComfyUIApp:
                             socketio.emit('status_update', {
                                 'image_id': image_id,
                                 'status': 'processing',
-                                'progress': progress
+                                'progress': progress,
+                                'gpu': gpu_id,
+                                'filename': original_name
                             })
                 
                 await asyncio.sleep(1)
             
         except Exception as e:
+            error_msg = str(e)
+            print(f"Exception processing {original_name}: {error_msg}")
+            import traceback
+            traceback.print_exc()
+            
             self.processing_status[image_id]['status'] = 'error'
-            self.processing_status[image_id]['error'] = str(e)
+            self.processing_status[image_id]['error'] = error_msg
             
             socketio.emit('status_update', {
                 'image_id': image_id,
                 'status': 'error',
-                'error': str(e)
+                'error': error_msg,
+                'gpu': gpu_id,
+                'filename': original_name
             })
             
             # Clean up websocket connection for this exception case
