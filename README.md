@@ -11,6 +11,8 @@ A multi-GPU batch image processing application for ComfyUI with both Gradio and 
 - **Custom Prompts**: Configurable positive and negative prompts
 - **Download Archives**: Batch download processed images as ZIP
 - **Two Interface Options**: Choose between Gradio or Flask web interface
+- **GPU-based Preview Management**: Throttles preview requests per GPU server to prevent overload
+- **Intelligent Queueing**: Manages preview requests to ensure final images load properly
 
 ## Installation
 
@@ -88,6 +90,30 @@ Edit `workflow.json` to customize the ComfyUI processing workflow:
 - Default prompts are extracted from nodes "10" (positive) and "15" (negative)
 - Output nodes "20" and "52" are used for result images
 - Input node "1" is automatically updated with uploaded images
+
+## Preview Management Features
+
+### GPU-based Preview Throttling
+
+The application intelligently manages preview requests to prevent overloading the ComfyUI servers:
+
+- **Per-GPU Limits**: Maximum of 2 concurrent preview requests per GPU/ComfyUI server
+- **Smart Distribution**: Automatically distributes preview requests across available GPUs
+- **Queue Management**: Queues excess requests and processes them as slots become available
+
+### Preview Controls
+
+- **Toggle Control**: Enable/disable live previews entirely
+- **Visual Feedback**: Shows queue status and active preview counts
+- **Persistent Settings**: Saves your preview preferences automatically
+
+### Benefits
+
+- **Prevents Server Overload**: Ensures ComfyUI servers aren't flooded with preview requests
+- **Better Final Image Loading**: Prioritizes final processed images over excessive previews
+- **Smooth Performance**: Maintains responsive interface even during heavy batch processing
+
+The system automatically saves your preview preferences and restores them on page reload.
 
 ## File Structure
 

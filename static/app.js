@@ -14,15 +14,263 @@ class ComfyUIApp {
         this.filteredResults = [];
         this.showUnrefined = true;
         
+        // Preview management - track per GPU server
+        this.previewsEnabled = true;
+        this.pendingPreviewsByGpu = new Map(); // Track pending requests per GPU
+        this.maxPendingPerGpu = 2; // Maximum pending previews per GPU server
+        this.previewRequestQueue = [];
+        this.imageGpuMapping = new Map(); // Track which GPU each image is being processed on
+        
         this.init();
     }
 
     init() {
+        this.loadUserPreferences();
         this.setupSocketIO();
         this.setupEventListeners();
         this.setupDragAndDrop();
         this.setupKeyboardShortcuts();
         this.startStatusPolling();
+    }
+
+    loadUserPreferences() {
+        // Load preview preferences from localStorage
+        const previewsEnabled = localStorage.getItem('previewsEnabled');
+        if (previewsEnabled !== null) {
+            this.previewsEnabled = previewsEnabled === 'true';
+        }
+        
+        // Initialize toggle state
+        const toggle = document.getElementById('previewsToggle');
+        if (toggle) {
+            toggle.checked = this.previewsEnabled;
+        }
+        
+        // Initialize preview gallery state
+        if (!this.previewsEnabled) {
+            setTimeout(() => {
+                const previewGallery = document.getElementById('livePreview');
+                if (previewGallery) {
+                    previewGallery.innerHTML = '<div class="empty-state"><i class="fas fa-eye-slash"></i><p>Live previews disabled</p></div>';
+                }
+            }, 100);
+        }
+    }
+
+    saveUserPreferences() {
+        localStorage.setItem('previewsEnabled', this.previewsEnabled.toString());
+    }
+
+    shouldThrottlePreview(gpuId) {
+        if (!this.previewsEnabled) {
+            return true;
+        }
+        
+        // Check if this specific GPU has reached its limit
+        const pendingForGpu = this.pendingPreviewsByGpu.get(gpuId) || 0;
+        return pendingForGpu >= this.maxPendingPerGpu;
+    }
+
+    getAvailableGpu() {
+        // Find a GPU with available preview slots
+        for (let gpu = 0; gpu < 8; gpu++) { // Assuming max 8 GPUs
+            const pending = this.pendingPreviewsByGpu.get(gpu) || 0;
+            if (pending < this.maxPendingPerGpu) {
+                return gpu;
+            }
+        }
+        return null; // No available GPU slots
+    }
+
+    queuePreviewRequest(requestData) {
+        if (!this.previewsEnabled) {
+            return;
+        }
+        
+        // Get GPU ID from image mapping or find available GPU
+        let gpuId = requestData.gpu_id;
+        if (gpuId === undefined && requestData.image_id) {
+            gpuId = this.imageGpuMapping.get(requestData.image_id);
+        }
+        if (gpuId === undefined) {
+            gpuId = this.getAvailableGpu();
+        }
+        
+        if (gpuId === null || this.shouldThrottlePreview(gpuId)) {
+            // Add to queue with GPU info
+            this.previewRequestQueue.push({...requestData, gpu_id: gpuId || 0});
+            this.updatePreviewQueueStatus();
+            return;
+        }
+        
+        this.executePreviewRequest({...requestData, gpu_id: gpuId});
+    }
+
+    executePreviewRequest(requestData) {
+        const gpuId = requestData.gpu_id || 0;
+        const requestId = `${requestData.image_id}_${gpuId}_${Date.now()}`;
+        
+        // Increment pending count for this GPU
+        const currentPending = this.pendingPreviewsByGpu.get(gpuId) || 0;
+        this.pendingPreviewsByGpu.set(gpuId, currentPending + 1);
+        
+        // Create new image element for loading
+        const newImg = document.createElement('img');
+        newImg.dataset.requestId = requestId;
+        newImg.dataset.gpuId = gpuId;
+        
+        const cleanup = () => {
+            // Decrement pending count for this GPU
+            const pending = this.pendingPreviewsByGpu.get(gpuId) || 1;
+            this.pendingPreviewsByGpu.set(gpuId, Math.max(0, pending - 1));
+            this.processPreviewQueue();
+        };
+        
+        newImg.onload = () => {
+            this.handlePreviewImageLoaded(requestData, newImg);
+            cleanup();
+        };
+        
+        newImg.onerror = () => {
+            console.warn('Failed to load preview image for', requestData.image_id, 'on GPU', gpuId);
+            cleanup();
+        };
+        
+        // Set timeout (simplified without network detection)
+        setTimeout(() => {
+            if (newImg.parentNode) {
+                console.warn('Preview request timed out for', requestData.image_id, 'on GPU', gpuId);
+                cleanup();
+            }
+        }, 8000);
+        
+        // Start loading
+        if (requestData.preview_path) {
+            newImg.src = requestData.preview_path;
+        } else if (requestData.preview_url) {
+            newImg.src = requestData.preview_url;
+        }
+    }
+
+    processPreviewQueue() {
+        // Process queued preview requests
+        const processedIndexes = [];
+        
+        for (let i = 0; i < this.previewRequestQueue.length; i++) {
+            const requestData = this.previewRequestQueue[i];
+            const gpuId = requestData.gpu_id || 0;
+            
+            if (!this.shouldThrottlePreview(gpuId)) {
+                this.executePreviewRequest(requestData);
+                processedIndexes.push(i);
+            }
+        }
+        
+        // Remove processed items from queue (in reverse order to maintain indexes)
+        for (let i = processedIndexes.length - 1; i >= 0; i--) {
+            this.previewRequestQueue.splice(processedIndexes[i], 1);
+        }
+        
+        // Update UI to show queue status
+        this.updatePreviewQueueStatus();
+    }
+
+    updatePreviewQueueStatus() {
+        const previewGallery = document.getElementById('livePreview');
+        if (!previewGallery) return;
+        
+        // Calculate total pending across all GPUs
+        let totalPending = 0;
+        for (const count of this.pendingPreviewsByGpu.values()) {
+            totalPending += count;
+        }
+        
+        // Show queue indicator if there are queued items or pending requests
+        if (this.previewRequestQueue.length > 0 || totalPending > 0) {
+            previewGallery.classList.add('preview-queued');
+            
+            // Add or update queue indicator
+            let queueIndicator = previewGallery.querySelector('.preview-queue-indicator');
+            if (!queueIndicator) {
+                queueIndicator = document.createElement('div');
+                queueIndicator.className = 'preview-queue-indicator';
+                previewGallery.prepend(queueIndicator);
+            }
+            
+            const queuedText = this.previewRequestQueue.length > 0 
+                ? `${this.previewRequestQueue.length} queued` 
+                : '';
+            const pendingText = totalPending > 0 
+                ? `${totalPending} loading` 
+                : '';
+            
+            const statusParts = [queuedText, pendingText].filter(Boolean);
+            queueIndicator.textContent = `⏳ ${statusParts.join(', ')} (max 2 per GPU)`;
+        } else {
+            previewGallery.classList.remove('preview-queued');
+            const queueIndicator = previewGallery.querySelector('.preview-queue-indicator');
+            if (queueIndicator) {
+                queueIndicator.remove();
+            }
+        }
+    }
+
+    handlePreviewImageLoaded(requestData, imgElement) {
+        const previewGallery = document.getElementById('livePreview');
+        if (!previewGallery) return;
+
+        // Find or create preview item container
+        let previewItem = previewGallery.querySelector(`[data-preview-id="${requestData.image_id}"]`);
+        
+        if (!previewItem) {
+            previewItem = document.createElement('div');
+            previewItem.className = 'image-item preview-container fade-in-up';
+            previewItem.dataset.previewId = requestData.image_id;
+            previewItem.style.position = 'relative';
+            
+            previewGallery.appendChild(previewItem);
+        }
+
+        // Style the loaded image
+        imgElement.style.position = 'absolute';
+        imgElement.style.top = '0';
+        imgElement.style.left = '0';
+        imgElement.style.width = '100%';
+        imgElement.style.height = '100%';
+        imgElement.style.objectFit = 'cover';
+        imgElement.style.zIndex = '2';
+        imgElement.alt = 'Preview';
+        
+        // Find all existing images in this container
+        const existingImages = previewItem.querySelectorAll('img');
+        
+        // Add the new image
+        previewItem.appendChild(imgElement);
+        
+        // Remove placeholder if it exists
+        const placeholder = previewItem.querySelector('.preview-placeholder');
+        if (placeholder) {
+            placeholder.remove();
+        }
+        
+        // Add or update overlay
+        let overlay = previewItem.querySelector('.image-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'image-overlay';
+            overlay.innerHTML = '<span class="image-name">Processing...</span>';
+            previewItem.appendChild(overlay);
+        }
+        overlay.style.zIndex = '3';
+        
+        // Remove old images after transition
+        setTimeout(() => {
+            existingImages.forEach(img => {
+                if (img !== imgElement) {
+                    img.remove();
+                }
+            });
+        }, 100);
     }
 
     setupSocketIO() {
@@ -109,6 +357,33 @@ class ComfyUIApp {
         document.getElementById('downloadArchiveBtn').addEventListener('click', () => {
             this.downloadArchive();
         });
+
+        // Previews toggle
+        const previewsToggle = document.getElementById('previewsToggle');
+        if (previewsToggle) {
+            previewsToggle.addEventListener('change', (e) => {
+                this.previewsEnabled = e.target.checked;
+                this.saveUserPreferences();
+                
+                if (!this.previewsEnabled) {
+                    // Clear existing previews
+                    const previewGallery = document.getElementById('livePreview');
+                    if (previewGallery) {
+                        previewGallery.innerHTML = '<div class="empty-state"><i class="fas fa-eye-slash"></i><p>Live previews disabled</p></div>';
+                    }
+                    // Clear preview queue and pending requests
+                    this.previewRequestQueue = [];
+                    this.pendingPreviewsByGpu.clear();
+                    this.imageGpuMapping.clear();
+                }
+                
+                this.showNotification(
+                    'Preview Settings', 
+                    `Live previews ${this.previewsEnabled ? 'enabled' : 'disabled'}`, 
+                    'info'
+                );
+            });
+        }
 
         // Delete buttons (delegated event handling)
         document.addEventListener('click', (e) => {
@@ -648,6 +923,11 @@ class ComfyUIApp {
     }
 
     updateImageStatus(data) {
+        // Track GPU assignment for this image
+        if (data.image_id && data.gpu !== undefined) {
+            this.imageGpuMapping.set(data.image_id, data.gpu);
+        }
+
         // Update status table if image exists
         const rows = document.querySelectorAll('#statusTableBody tr');
         rows.forEach(row => {
@@ -684,6 +964,11 @@ class ComfyUIApp {
         const previewItem = document.querySelector(`[data-preview-id="${data.image_id}"]`);
         if (previewItem) {
             previewItem.remove();
+        }
+        
+        // Clean up GPU mapping for completed image
+        if (data.image_id) {
+            this.imageGpuMapping.delete(data.image_id);
         }
     }
 
@@ -800,84 +1085,12 @@ class ComfyUIApp {
     }
 
     updatePreviewImage(data) {
-        // Update live preview gallery with new preview
-        const previewGallery = document.getElementById('livePreview');
-        if (!previewGallery) return;
-
-        // Find or create preview item container
-        let previewItem = previewGallery.querySelector(`[data-preview-id="${data.image_id}"]`);
-        
-        if (!previewItem) {
-            previewItem = document.createElement('div');
-            previewItem.className = 'image-item preview-container fade-in-up';
-            previewItem.dataset.previewId = data.image_id;
-            previewItem.style.position = 'relative';
-            
-            // Add a loading placeholder
-            const placeholder = document.createElement('div');
-            placeholder.className = 'preview-placeholder';
-            placeholder.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            previewItem.appendChild(placeholder);
-            
-            previewGallery.appendChild(previewItem);
+        if (!this.previewsEnabled) {
+            return;
         }
-
-        // Create new image element
-        const newImg = document.createElement('img');
-        newImg.style.position = 'absolute';
-        newImg.style.top = '0';
-        newImg.style.left = '0';
-        newImg.style.width = '100%';
-        newImg.style.height = '100%';
-        newImg.style.objectFit = 'cover';
-        newImg.style.zIndex = '2';
-        newImg.alt = 'Preview';
         
-        // Set the source
-        if (data.preview_path) {
-            newImg.src = data.preview_path;
-        } else if (data.preview_url) {
-            newImg.src = data.preview_url;
-        }
-
-        // When new image loads, add it and remove old ones
-        newImg.onload = () => {
-            // Find all existing images in this container
-            const existingImages = previewItem.querySelectorAll('img');
-            
-            // Add the new image
-            previewItem.appendChild(newImg);
-            
-            // Remove placeholder if it exists
-            const placeholder = previewItem.querySelector('.preview-placeholder');
-            if (placeholder) {
-                placeholder.remove();
-            }
-            
-            // Add or update overlay
-            let overlay = previewItem.querySelector('.image-overlay');
-            if (!overlay) {
-                overlay = document.createElement('div');
-                overlay.className = 'image-overlay';
-                overlay.innerHTML = '<span class="image-name">Processing...</span>';
-                previewItem.appendChild(overlay);
-            }
-            overlay.style.zIndex = '3'; // Keep overlay on top
-            
-            // Remove old images after a short delay to ensure smooth transition
-            setTimeout(() => {
-                existingImages.forEach(img => {
-                    if (img !== newImg) {
-                        img.remove();
-                    }
-                });
-            }, 100);
-        };
-
-        // Handle error case
-        newImg.onerror = () => {
-            console.error('Failed to load preview image');
-        };
+        // Queue the preview request instead of processing immediately
+        this.queuePreviewRequest(data);
     }
 
     updateNodeStatus(data) {
@@ -895,7 +1108,12 @@ class ComfyUIApp {
 
     updateLivePreview(previewImages) {
         const previewGallery = document.getElementById('livePreview');
-        if (!previewGallery) return;
+        if (!previewGallery || !this.previewsEnabled) {
+            if (previewGallery && !this.previewsEnabled) {
+                previewGallery.innerHTML = '<div class="empty-state"><i class="fas fa-eye-slash"></i><p>Live previews disabled</p></div>';
+            }
+            return;
+        }
 
         // Get existing preview items
         const existingPreviews = new Set(
@@ -910,7 +1128,7 @@ class ComfyUIApp {
                 ? previewPath 
                 : `/previews/${previewPath.split('/').pop()}`;
             
-            this.updatePreviewImage({
+            this.queuePreviewRequest({
                 image_id: imageId,
                 [previewPath.startsWith('http') ? 'preview_url' : 'preview_path']: imageSrc
             });

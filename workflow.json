@@ -66,7 +66,7 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 625436357918852,
+      "noise_seed": 354370997448413,
       "steps": 60,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -126,7 +126,7 @@
   },
   "15": {
     "inputs": {
-      "text": "blurry, low quality, worst quality, wrong anatomy, censored, clothes, public hair",
+      "text": "blurry, low quality, worst quality, wrong anatomy, censored, clothes",
       "clip": [
         "9",
         1
@@ -336,67 +336,15 @@
       "title": "MaskComposite"
     }
   },
-  "35": {
-    "inputs": {
-      "prompt": "head, face, hair",
-      "threshold": 0.20000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
-    }
-  },
   "36": {
     "inputs": {
       "x": 0,
       "y": 0,
-      "operation": "add",
-      "destination": [
-        "35",
-        1
-      ],
-      "source": [
-        "35",
-        1
-      ]
+      "operation": "add"
     },
     "class_type": "MaskComposite",
     "_meta": {
       "title": "MaskComposite"
-    }
-  },
-  "37": {
-    "inputs": {
-      "prompt": "skin",
-      "threshold": 0.20000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
     }
   },
   "39": {
@@ -405,12 +353,12 @@
       "y": 0,
       "operation": "subtract",
       "destination": [
-        "34",
+        "60",
         0
       ],
       "source": [
-        "36",
-        0
+        "54",
+        1
       ]
     },
     "class_type": "MaskComposite",
@@ -421,7 +369,7 @@
   "40": {
     "inputs": {
       "mask": [
-        "34",
+        "60",
         0
       ]
     },
@@ -433,8 +381,8 @@
   "41": {
     "inputs": {
       "mask": [
-        "36",
-        0
+        "54",
+        1
       ]
     },
     "class_type": "MaskPreview+",
@@ -477,7 +425,7 @@
       "guide_size": 1024,
       "guide_size_for": false,
       "max_size": 2048,
-      "seed": 463873884925013,
+      "seed": 888470382445856,
       "steps": 60,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -582,6 +530,146 @@
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
+    }
+  },
+  "54": {
+    "inputs": {
+      "Hair": true,
+      "Glasses": false,
+      "Top-clothes": false,
+      "Bottom-clothes": false,
+      "Torso-skin": false,
+      "Face": true,
+      "Left-arm": false,
+      "Right-arm": false,
+      "Left-leg": false,
+      "Right-leg": false,
+      "Left-foot": false,
+      "Right-foot": false,
+      "mask_blur": 4,
+      "mask_offset": 0,
+      "invert_output": false,
+      "background": "Alpha",
+      "images": [
+        "1",
+        0
+      ],
+      "background_color": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "BodySegment",
+    "_meta": {
+      "title": "Body Part Segmentation (RMBG)"
+    }
+  },
+  "56": {
+    "inputs": {
+      "preset": "black",
+      "color": ""
+    },
+    "class_type": "AILab_ColorInput",
+    "_meta": {
+      "title": "Color Input (RMBG) 🎨"
+    }
+  },
+  "57": {
+    "inputs": {
+      "coat": true,
+      "jacket": true,
+      "cardigan": true,
+      "vest": true,
+      "sweater": true,
+      "hood": true,
+      "shirt, blouse": true,
+      "top, t-shirt, sweatshirt": true,
+      "sleeve": true,
+      "dress": true,
+      "jumpsuit": true,
+      "cape": true,
+      "pants": true,
+      "shorts": true,
+      "skirt": true,
+      "tights, stockings": true,
+      "sock": true,
+      "shoe": true,
+      "process_res": 512,
+      "mask_blur": 8,
+      "mask_offset": 0,
+      "invert_output": false,
+      "background": "Alpha",
+      "images": [
+        "1",
+        0
+      ],
+      "accessories_options": [
+        "59",
+        0
+      ],
+      "background_color": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "FashionSegmentClothing",
+    "_meta": {
+      "title": "Fashion Segmentation (RMBG)"
+    }
+  },
+  "59": {
+    "inputs": {
+      "hat": true,
+      "glasses": true,
+      "headband, head covering, hair accessory": false,
+      "scarf": true,
+      "tie": true,
+      "glove": true,
+      "watch": true,
+      "belt": true,
+      "leg warmer": true,
+      "bag, wallet": true,
+      "umbrella": true,
+      "collar": true,
+      "lapel": true,
+      "neckline": true,
+      "epaulette": true,
+      "pocket": true,
+      "buckle": true,
+      "zipper": true,
+      "applique": true,
+      "bow": true,
+      "flower": true,
+      "bead": true,
+      "fringe": true,
+      "ribbon": true,
+      "rivet": true,
+      "ruffle": true,
+      "sequin": true,
+      "tassel": true
+    },
+    "class_type": "FashionSegmentAccessories",
+    "_meta": {
+      "title": "Fashion Accessories Segmentation (RMBG)"
+    }
+  },
+  "60": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "34",
+        0
+      ],
+      "source": [
+        "57",
+        1
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
     }
   }
 }
