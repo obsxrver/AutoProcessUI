@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "image": "example.png"
+      "image": "19c1dceb-8287-4ed2-b361-21dc4bef9fc7_2.jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -11,7 +11,7 @@
   "8": {
     "inputs": {
       "mask": [
-        "39",
+        "19",
         0
       ]
     },
@@ -44,7 +44,7 @@
   },
   "11": {
     "inputs": {
-      "grow_mask_by": 0,
+      "grow_mask_by": 10,
       "pixels": [
         "1",
         0
@@ -54,7 +54,7 @@
         2
       ],
       "mask": [
-        "39",
+        "19",
         0
       ]
     },
@@ -66,8 +66,8 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 354370997448413,
-      "steps": 60,
+      "noise_seed": 950705925637015,
+      "steps": 80,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
@@ -179,10 +179,10 @@
   },
   "19": {
     "inputs": {
-      "amount": 14,
+      "amount": 16,
       "device": "auto",
       "mask": [
-        "61",
+        "39",
         0
       ]
     },
@@ -353,12 +353,12 @@
       "y": 0,
       "operation": "subtract",
       "destination": [
-        "19",
+        "61",
         0
       ],
       "source": [
-        "54",
-        1
+        "62",
+        0
       ]
     },
     "class_type": "MaskComposite",
@@ -413,19 +413,19 @@
       "guide_size": 1024,
       "guide_size_for": false,
       "max_size": 2048,
-      "seed": 888470382445856,
+      "seed": 1007516672586225,
       "steps": 60,
       "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
       "denoise": 0.30000000000000004,
-      "feather": 8,
+      "feather": 7,
       "noise_mask": true,
       "force_inpaint": true,
       "wildcard": "",
       "cycle": 2,
       "inpaint_model": true,
-      "noise_mask_feather": 6,
+      "noise_mask_feather": 7,
       "tiled_encode": false,
       "tiled_decode": false,
       "image": [
@@ -493,12 +493,12 @@
   "51": {
     "inputs": {
       "combined": false,
-      "crop_factor": 1.6,
-      "bbox_fill": true,
+      "crop_factor": 1.2000000000000002,
+      "bbox_fill": false,
       "drop_size": 50,
-      "contour_fill": true,
+      "contour_fill": false,
       "mask": [
-        "39",
+        "19",
         0
       ]
     },
@@ -607,7 +607,7 @@
   },
   "59": {
     "inputs": {
-      "hat": true,
+      "hat": false,
       "glasses": true,
       "headband, head covering, hair accessory": false,
       "scarf": true,
@@ -662,11 +662,25 @@
   },
   "61": {
     "inputs": {
-      "expand": 64,
-      "tapered_corners": true,
+      "expand": 10,
+      "tapered_corners": false,
       "mask": [
         "60",
         0
+      ]
+    },
+    "class_type": "GrowMask",
+    "_meta": {
+      "title": "GrowMask"
+    }
+  },
+  "62": {
+    "inputs": {
+      "expand": 6,
+      "tapered_corners": false,
+      "mask": [
+        "54",
+        1
       ]
     },
     "class_type": "GrowMask",
