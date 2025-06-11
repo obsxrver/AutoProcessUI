@@ -11,7 +11,7 @@
   "8": {
     "inputs": {
       "mask": [
-        "19",
+        "39",
         0
       ]
     },
@@ -44,7 +44,7 @@
   },
   "11": {
     "inputs": {
-      "grow_mask_by": 64,
+      "grow_mask_by": 0,
       "pixels": [
         "1",
         0
@@ -54,7 +54,7 @@
         2
       ],
       "mask": [
-        "19",
+        "39",
         0
       ]
     },
@@ -182,7 +182,7 @@
       "amount": 14,
       "device": "auto",
       "mask": [
-        "39",
+        "61",
         0
       ]
     },
@@ -353,7 +353,7 @@
       "y": 0,
       "operation": "subtract",
       "destination": [
-        "60",
+        "19",
         0
       ],
       "source": [
@@ -364,18 +364,6 @@
     "class_type": "MaskComposite",
     "_meta": {
       "title": "MaskComposite"
-    }
-  },
-  "40": {
-    "inputs": {
-      "mask": [
-        "60",
-        0
-      ]
-    },
-    "class_type": "MaskPreview+",
-    "_meta": {
-      "title": "🔧 Mask Preview"
     }
   },
   "41": {
@@ -510,7 +498,7 @@
       "drop_size": 50,
       "contour_fill": true,
       "mask": [
-        "19",
+        "39",
         0
       ]
     },
@@ -670,6 +658,20 @@
     "class_type": "MaskComposite",
     "_meta": {
       "title": "MaskComposite"
+    }
+  },
+  "61": {
+    "inputs": {
+      "expand": 64,
+      "tapered_corners": true,
+      "mask": [
+        "60",
+        0
+      ]
+    },
+    "class_type": "GrowMask",
+    "_meta": {
+      "title": "GrowMask"
     }
   }
 }
