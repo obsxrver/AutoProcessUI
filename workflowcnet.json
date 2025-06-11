@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "image": "meloinatu_1730082587_3488508043204632052_17143090401.jpg"
+      "image": "example.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -31,7 +31,7 @@
   },
   "10": {
     "inputs": {
-      "text": "blue shirt, highly detailed",
+      "text": "red shirt, black pants",
       "clip": [
         "9",
         1
@@ -44,7 +44,7 @@
   },
   "11": {
     "inputs": {
-      "grow_mask_by": 10,
+      "grow_mask_by": 0,
       "pixels": [
         "1",
         0
@@ -66,9 +66,9 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 785883497622424,
-      "steps": 80,
-      "cfg": 4,
+      "noise_seed": 354370997448413,
+      "steps": 60,
+      "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
       "start_at_step": 0,
@@ -79,7 +79,7 @@
         0
       ],
       "positive": [
-        "10",
+        "64",
         0
       ],
       "negative": [
@@ -126,7 +126,7 @@
   },
   "15": {
     "inputs": {
-      "text": "blurry, low quality, worst quality, wrong anatomy, obese, censored, clothes",
+      "text": "blurry, low quality, worst quality, wrong anatomy, censored, clothes",
       "clip": [
         "9",
         1
@@ -179,7 +179,7 @@
   },
   "19": {
     "inputs": {
-      "amount": 16,
+      "amount": 14,
       "device": "auto",
       "mask": [
         "39",
@@ -357,8 +357,8 @@
         0
       ],
       "source": [
-        "62",
-        0
+        "54",
+        1
       ]
     },
     "class_type": "MaskComposite",
@@ -413,19 +413,19 @@
       "guide_size": 1024,
       "guide_size_for": false,
       "max_size": 2048,
-      "seed": 902546195183490,
-      "steps": 80,
-      "cfg": 4,
+      "seed": 888470382445856,
+      "steps": 60,
+      "cfg": 5,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 0.4000000000000001,
+      "denoise": 0.30000000000000004,
       "feather": 8,
       "noise_mask": true,
       "force_inpaint": true,
       "wildcard": "",
       "cycle": 2,
       "inpaint_model": true,
-      "noise_mask_feather": 8,
+      "noise_mask_feather": 6,
       "tiled_encode": false,
       "tiled_decode": false,
       "image": [
@@ -449,7 +449,7 @@
         2
       ],
       "positive": [
-        "10",
+        "64",
         0
       ],
       "negative": [
@@ -473,7 +473,7 @@
   "49": {
     "inputs": {
       "schedule_for_cycle": "simple",
-      "target_denoise": 0.5000000000000001
+      "target_denoise": 0.30000000000000004
     },
     "class_type": "DenoiseSchedulerDetailerHookProvider",
     "_meta": {
@@ -493,8 +493,8 @@
   "51": {
     "inputs": {
       "combined": false,
-      "crop_factor": 1.4000000000000001,
-      "bbox_fill": false,
+      "crop_factor": 1.6,
+      "bbox_fill": true,
       "drop_size": 50,
       "contour_fill": false,
       "mask": [
@@ -569,7 +569,7 @@
       "cardigan": true,
       "vest": true,
       "sweater": true,
-      "hood": false,
+      "hood": true,
       "shirt, blouse": true,
       "top, t-shirt, sweatshirt": true,
       "sleeve": true,
@@ -579,7 +579,7 @@
       "pants": true,
       "shorts": true,
       "skirt": true,
-      "tights, stockings": false,
+      "tights, stockings": true,
       "sock": true,
       "shoe": true,
       "process_res": 512,
@@ -607,7 +607,7 @@
   },
   "59": {
     "inputs": {
-      "hat": false,
+      "hat": true,
       "glasses": true,
       "headband, head covering, hair accessory": false,
       "scarf": true,
@@ -662,8 +662,8 @@
   },
   "61": {
     "inputs": {
-      "expand": 8,
-      "tapered_corners": false,
+      "expand": 64,
+      "tapered_corners": true,
       "mask": [
         "60",
         0
@@ -676,16 +676,49 @@
   },
   "62": {
     "inputs": {
-      "expand": 6,
-      "tapered_corners": false,
-      "mask": [
-        "54",
-        1
+      "detect_hand": "enable",
+      "detect_body": "enable",
+      "detect_face": "enable",
+      "image": [
+        "1",
+        0
       ]
     },
-    "class_type": "GrowMask",
+    "class_type": "OpenPosePreprocessor",
     "_meta": {
-      "title": "GrowMask"
+      "title": "OpenPose Preprocessor"
+    }
+  },
+  "63": {
+    "inputs": {
+      "control_net_name": "control_v11p_sd15_openpose.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {
+      "title": "Load ControlNet Model"
+    }
+  },
+  "64": {
+    "inputs": {
+      "strength": 1,
+      "start_percent": 0,
+      "end_percent": 1,
+      "conditioning": [
+        "10",
+        0
+      ],
+      "control_net": [
+        "63",
+        0
+      ],
+      "image": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "ApplyControlNetAdvanced",
+    "_meta": {
+      "title": "Apply ControlNet (Advanced)"
     }
   }
 }

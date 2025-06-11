@@ -72,6 +72,9 @@ class FlaskComfyUIApp:
         self.results_cache = {}
         self.processing_status = {}
         
+        # Re-processing functionality
+        self.reprocess_queue = {}  # Store images marked for re-processing
+        
         # Initialize orchestrator (will be created when processing starts)
         self.orchestrator = None
         self.comfyui_processes = []
@@ -423,8 +426,90 @@ class FlaskComfyUIApp:
         self.results_cache.clear()
         self.processing_status.clear()
         self.preview_images.clear()
+        self.reprocess_queue.clear()
         
         return {"status": "success", "message": "All results cleared"}
+    
+    def mark_for_reprocessing(self, image_id):
+        """Mark an image for re-processing"""
+        if image_id in self.results_cache:
+            result = self.results_cache[image_id]
+            
+            # Create a temporary file from the first output image to use as input
+            input_path = None
+            if result.get('output_paths'):
+                # Use the first output image as the new input
+                original_output = result['output_paths'][0]
+                if os.path.exists(original_output):
+                    # Create a copy in the temp inputs directory
+                    temp_filename = f"reprocess_{image_id}_{int(time.time())}.png"
+                    temp_path = self.temp_input_dir / temp_filename
+                    shutil.copy2(original_output, temp_path)
+                    input_path = str(temp_path)
+            
+            if not input_path and result.get('input_path') and os.path.exists(result['input_path']):
+                # Fallback to original input if available
+                input_path = result['input_path']
+            
+            if input_path:
+                self.reprocess_queue[image_id] = {
+                    'image_id': image_id,
+                    'path': input_path,
+                    'original_name': f"reprocess_{Path(input_path).name}",
+                    'original_result': result,
+                    'marked_time': time.time()
+                }
+                return {"status": "success", "message": f"Image marked for re-processing"}
+            else:
+                return {"status": "error", "message": "No suitable input image found for re-processing"}
+        else:
+            return {"status": "error", "message": "Image not found in results"}
+    
+    def unmark_for_reprocessing(self, image_id):
+        """Remove an image from re-processing queue"""
+        if image_id in self.reprocess_queue:
+            # Clean up temporary file if it was created for re-processing
+            reprocess_item = self.reprocess_queue[image_id]
+            temp_path = reprocess_item['path']
+            if temp_path.startswith(str(self.temp_input_dir)) and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+            
+            del self.reprocess_queue[image_id]
+            return {"status": "success", "message": "Image removed from re-processing queue"}
+        else:
+            return {"status": "error", "message": "Image not found in re-processing queue"}
+    
+    def get_reprocess_queue(self):
+        """Get list of images marked for re-processing"""
+        return [
+            {
+                'image_id': image_id,
+                'original_name': item['original_name'],
+                'marked_time': item['marked_time'],
+                'path': item['path']
+            }
+            for image_id, item in self.reprocess_queue.items()
+        ]
+    
+    def clear_reprocess_queue(self):
+        """Clear all images from re-processing queue"""
+        for image_id, item in list(self.reprocess_queue.items()):
+            temp_path = item['path']
+            if temp_path.startswith(str(self.temp_input_dir)) and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+        
+        self.reprocess_queue.clear()
+        return {"status": "success", "message": "Re-processing queue cleared"}
+    
+    def get_reprocess_count(self):
+        """Get count of images in re-processing queue"""
+        return len(self.reprocess_queue)
     
     def get_status_data(self):
         """Get processing status data"""
@@ -961,11 +1046,13 @@ def index():
     upload_queue = batch_app.get_upload_queue_images()
     results = batch_app.get_all_results()
     status_data = batch_app.get_status_data()
+    reprocess_queue = batch_app.get_reprocess_queue()
     
     return render_template('index.html',
                          upload_queue=upload_queue,
                          results=results,
                          status_data=status_data,
+                         reprocess_queue=reprocess_queue,
                          default_positive=batch_app.default_positive,
                          default_negative=batch_app.default_negative,
                          cuda_devices=batch_app.detect_cuda_devices())
@@ -1072,6 +1159,7 @@ def get_status():
     status_data = batch_app.get_status_data()
     upload_queue = batch_app.get_upload_queue_images()
     results = batch_app.get_all_results()
+    reprocess_queue = batch_app.get_reprocess_queue()
     
     # Get preview images for currently processing items
     preview_images = {}
@@ -1085,7 +1173,9 @@ def get_status():
         "status_data": status_data,
         "upload_queue": upload_queue,
         "results": results,
+        "reprocess_queue": reprocess_queue,
         "queue_count": len(batch_app.upload_queue),
+        "reprocess_count": len(batch_app.reprocess_queue),
         "preview_images": preview_images
     })
 
@@ -1160,6 +1250,99 @@ def stop_processing():
         "status": "success", 
         "message": "Stopping batch processing..."
     })
+
+@app.route('/mark_reprocess/<image_id>', methods=['POST'])
+def mark_reprocess(image_id):
+    """Mark an image for re-processing"""
+    result = batch_app.mark_for_reprocessing(image_id)
+    return jsonify(result)
+
+@app.route('/unmark_reprocess/<image_id>', methods=['POST'])
+def unmark_reprocess(image_id):
+    """Remove an image from re-processing queue"""
+    result = batch_app.unmark_for_reprocessing(image_id)
+    return jsonify(result)
+
+@app.route('/clear_reprocess_queue', methods=['POST'])
+def clear_reprocess_queue():
+    """Clear all images from re-processing queue"""
+    result = batch_app.clear_reprocess_queue()
+    return jsonify(result)
+
+@app.route('/reprocess', methods=['POST'])
+def reprocess_images():
+    """Start re-processing marked images"""
+    data = request.get_json()
+    positive_prompt = data.get('positive_prompt', batch_app.default_positive)
+    negative_prompt = data.get('negative_prompt', batch_app.default_negative)
+    save_unrefined = data.get('save_unrefined', True)
+    
+    if not batch_app.reprocess_queue:
+        return jsonify({"status": "error", "message": "No images in re-processing queue"})
+    
+    # Prepare image info list from re-processing queue
+    image_info_list = []
+    reprocess_items = list(batch_app.reprocess_queue.items())
+    
+    for image_id, info in reprocess_items:
+        file_path = info['path']
+        original_name = info['original_name']
+        
+        if os.path.exists(file_path):
+            # Create a new unique image ID for re-processing
+            new_image_id = str(uuid.uuid4())
+            image_info_list.append({
+                'path': file_path,
+                'original_name': original_name,
+                'image_id': new_image_id,
+                'is_reprocess': True,
+                'original_image_id': image_id
+            })
+    
+    if not image_info_list:
+        return jsonify({"status": "error", "message": "No valid files to re-process"})
+    
+    # Clear the re-processing queue as we're now processing these images
+    batch_app.reprocess_queue.clear()
+    
+    # Start processing in background thread
+    def run_async_reprocessing():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            results = loop.run_until_complete(
+                batch_app.process_batch_with_live_updates(
+                    image_info_list, positive_prompt, negative_prompt, save_unrefined
+                )
+            )
+            
+            # Emit final completion
+            socketio.emit('reprocess_complete', {
+                'total_processed': len(image_info_list),
+                'completed': len([r for r in results if r]),
+                'failed': len([r for r in results if not r])
+            })
+            
+            # Clean up temp files used for re-processing
+            for _, info in reprocess_items:
+                temp_path = info['path']
+                if temp_path.startswith(str(batch_app.temp_input_dir)) and os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
+                        
+        except Exception as e:
+            print(f"Error during re-processing: {e}")
+            socketio.emit('processing_error', {'error': str(e)})
+        finally:
+            loop.close()
+    
+    reprocessing_thread = threading.Thread(target=run_async_reprocessing)
+    reprocessing_thread.daemon = True
+    reprocessing_thread.start()
+    
+    return jsonify({"status": "success", "message": f"Started re-processing {len(image_info_list)} images"})
 
 # SocketIO Events
 @socketio.on('connect')

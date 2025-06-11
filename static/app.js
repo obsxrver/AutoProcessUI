@@ -292,6 +292,10 @@ class ComfyUIApp {
             this.handleBatchStopped(data);
         });
 
+        this.socket.on('reprocess_complete', (data) => {
+            this.handleReprocessComplete(data);
+        });
+
         this.socket.on('processing_error', (data) => {
             this.showNotification('Processing Error', data.error, 'danger');
         });
@@ -345,6 +349,15 @@ class ComfyUIApp {
             this.downloadArchive();
         });
 
+        // Re-processing buttons
+        document.getElementById('reprocessBtn').addEventListener('click', () => {
+            this.startReprocessing();
+        });
+
+        document.getElementById('clearReprocessBtn').addEventListener('click', () => {
+            this.clearReprocessQueue();
+        });
+
         // Previews toggle
         const previewsToggle = document.getElementById('previewsToggle');
         if (previewsToggle) {
@@ -395,6 +408,22 @@ class ComfyUIApp {
             if (e.target.closest('.delete-btn')) {
                 const imageId = e.target.closest('.delete-btn').dataset.id;
                 this.deleteImage(imageId);
+            }
+        });
+
+        // Mark for re-processing buttons (delegated event handling)
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.mark-reprocess-btn')) {
+                const imageId = e.target.closest('.mark-reprocess-btn').dataset.id;
+                this.markForReprocessing(imageId);
+            }
+        });
+
+        // Unmark from re-processing buttons (delegated event handling)
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.unmark-reprocess-btn')) {
+                const imageId = e.target.closest('.unmark-reprocess-btn').dataset.id;
+                this.unmarkForReprocessing(imageId);
             }
         });
 
@@ -721,15 +750,155 @@ class ComfyUIApp {
         }
     }
 
+    async markForReprocessing(imageId) {
+        try {
+            const response = await fetch(`/mark_reprocess/${imageId}`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Marked for Re-processing', result.message, 'success');
+                this.refreshStatus();
+            } else {
+                this.showNotification('Mark Error', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Mark reprocess error:', error);
+            this.showNotification('Mark Error', 'Failed to mark image for re-processing', 'danger');
+        }
+    }
+
+    async unmarkForReprocessing(imageId) {
+        try {
+            const response = await fetch(`/unmark_reprocess/${imageId}`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Unmarked', result.message, 'success');
+                this.refreshStatus();
+            } else {
+                this.showNotification('Unmark Error', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Unmark reprocess error:', error);
+            this.showNotification('Unmark Error', 'Failed to unmark image', 'danger');
+        }
+    }
+
+    async clearReprocessQueue() {
+        if (!confirm('Are you sure you want to clear the re-processing queue?')) {
+            return;
+        }
+
+        try {
+            this.setLoading('clearReprocessBtn', true);
+            
+            const response = await fetch('/clear_reprocess_queue', {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Queue Cleared', result.message, 'success');
+                this.refreshStatus();
+            } else {
+                this.showNotification('Clear Error', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Clear reprocess queue error:', error);
+            this.showNotification('Clear Error', 'Failed to clear re-processing queue', 'danger');
+        } finally {
+            this.setLoading('clearReprocessBtn', false);
+        }
+    }
+
+    async startReprocessing() {
+        const positivePrompt = document.getElementById('positivePrompt').value;
+        const negativePrompt = document.getElementById('negativePrompt').value;
+        const saveUnrefined = document.getElementById('saveUnrefinedToggle').checked;
+
+        try {
+            this.setLoading('reprocessBtn', true);
+            this.updateStatus('Starting re-processing...');
+            this.isProcessing = true;
+            
+            // Show stop button
+            const reprocessBtn = document.getElementById('reprocessBtn');
+            const originalText = reprocessBtn.innerHTML;
+            reprocessBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Re-processing';
+            reprocessBtn.classList.remove('btn-warning');
+            reprocessBtn.classList.add('btn-danger');
+            reprocessBtn.onclick = () => this.stopProcessing();
+            
+            const response = await fetch('/reprocess', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    positive_prompt: positivePrompt,
+                    negative_prompt: negativePrompt,
+                    save_unrefined: saveUnrefined
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Re-processing Started', result.message, 'success');
+                this.showProgressBar();
+            } else {
+                this.showNotification('Re-processing Error', result.message, 'danger');
+                this.resetReprocessButton();
+            }
+        } catch (error) {
+            console.error('Re-processing error:', error);
+            this.showNotification('Re-processing Error', 'Failed to start re-processing', 'danger');
+            this.resetReprocessButton();
+        }
+    }
+
+    resetReprocessButton() {
+        this.isProcessing = false;
+        const reprocessBtn = document.getElementById('reprocessBtn');
+        const reprocessCount = document.getElementById('reprocessCount').textContent;
+        reprocessBtn.innerHTML = `<i class="fas fa-redo"></i> Re-process Marked (${reprocessCount})`;
+        reprocessBtn.classList.remove('btn-danger');
+        reprocessBtn.classList.add('btn-warning');
+        reprocessBtn.disabled = reprocessCount === '0';
+        reprocessBtn.onclick = () => this.startReprocessing();
+        this.setLoading('reprocessBtn', false);
+    }
+
+    handleReprocessComplete(data) {
+        this.hideProgressBar();
+        this.resetReprocessButton();
+        
+        const message = `Re-processing complete! Processed: ${data.total_processed}, Completed: ${data.completed}, Failed: ${data.failed}`;
+        this.updateStatus(message);
+        this.showNotification('Re-processing Complete', message, 'success');
+        
+        // Refresh to show final results
+        this.refreshStatus();
+    }
+
     async refreshStatus() {
         try {
             const response = await fetch('/status');
             const data = await response.json();
             
             this.updateUploadGallery(data.upload_queue);
+            this.updateReprocessGallery(data.reprocess_queue);
             this.updateResultsWithPagination(data.results);
             this.updateStatusTable(data.status_data);
             this.updateQueueCounter(data.queue_count);
+            this.updateReprocessCounter(data.reprocess_count);
             this.updateLivePreview(data.preview_images || {});
         } catch (error) {
             console.error('Status refresh error:', error);
@@ -1056,6 +1225,40 @@ class ComfyUIApp {
         counter.textContent = `${count} images in queue`;
     }
 
+    updateReprocessGallery(reprocessQueue) {
+        const gallery = document.getElementById('reprocessGallery');
+        gallery.innerHTML = '';
+
+        reprocessQueue.forEach(item => {
+            const imageItem = document.createElement('div');
+            imageItem.className = 'image-item reprocess-item fade-in-up';
+            imageItem.dataset.id = item.image_id;
+            
+            const filename = item.path.split('/').pop();
+            
+            imageItem.innerHTML = `
+                <img src="/uploads/${filename}" alt="${item.original_name}">
+                <div class="image-overlay">
+                    <span class="image-name">${item.original_name}</span>
+                    <button class="btn btn-sm btn-danger unmark-reprocess-btn" data-id="${item.image_id}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            gallery.appendChild(imageItem);
+        });
+    }
+
+    updateReprocessCounter(count) {
+        const counter = document.getElementById('reprocessCount');
+        counter.textContent = count;
+        
+        // Enable/disable reprocess button based on queue count
+        const reprocessBtn = document.getElementById('reprocessBtn');
+        reprocessBtn.disabled = count === 0;
+    }
+
     setLoading(buttonId, loading) {
         const button = document.getElementById(buttonId);
         const icon = button.querySelector('i');
@@ -1075,7 +1278,9 @@ class ComfyUIApp {
                     'uploadBtn': 'fas fa-plus',
                     'processBtn': 'fas fa-play',
                     'clearQueueBtn': 'fas fa-trash',
-                    'clearAllBtn': 'fas fa-trash-alt'
+                    'clearAllBtn': 'fas fa-trash-alt',
+                    'reprocessBtn': 'fas fa-redo',
+                    'clearReprocessBtn': 'fas fa-times'
                 };
                 icon.className = iconMap[buttonId] || 'fas fa-cog';
             }

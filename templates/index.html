@@ -85,8 +85,8 @@
                             <button class="btn btn-success btn-lg" id="processBtn">
                                 <i class="fas fa-play"></i> Process Images
                             </button>
-                            <button class="btn btn-warning" id="rerunBtn">
-                                <i class="fas fa-redo"></i> Rerun Failed
+                            <button class="btn btn-warning" id="reprocessBtn" disabled>
+                                <i class="fas fa-redo"></i> Re-process Marked (<span id="reprocessCount">{{ reprocess_queue|length }}</span>)
                             </button>
                         </div>
                         
@@ -95,6 +95,9 @@
                         <div class="d-grid gap-2">
                             <button class="btn btn-danger" id="clearAllBtn">
                                 <i class="fas fa-trash-alt"></i> Clear All Results
+                            </button>
+                            <button class="btn btn-secondary" id="clearReprocessBtn">
+                                <i class="fas fa-times"></i> Clear Re-process Queue
                             </button>
                             <button class="btn btn-info" id="refreshBtn">
                                 <i class="fas fa-sync"></i> Refresh Status
@@ -115,6 +118,28 @@
                                 <img src="{{ url_for('serve_upload_image', filename=item.path.split('/')[-1]) }}" alt="{{ item.original_name }}">
                                 <div class="image-overlay">
                                     <span class="image-name">{{ item.original_name }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Re-processing Queue Gallery -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6><i class="fas fa-redo"></i> Re-processing Queue</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="reprocessGallery" class="image-gallery">
+                            {% for item in reprocess_queue %}
+                            <div class="image-item reprocess-item" data-id="{{ item.image_id }}">
+                                <img src="{{ url_for('serve_upload_image', filename=item.path.split('/')[-1]) }}" alt="{{ item.original_name }}">
+                                <div class="image-overlay">
+                                    <span class="image-name">{{ item.original_name }}</span>
+                                    <button class="btn btn-sm btn-danger unmark-reprocess-btn" data-id="{{ item.image_id }}">
+                                        <i class="fas fa-times"></i>
+                                    </button>
                                 </div>
                             </div>
                             {% endfor %}
@@ -221,9 +246,14 @@
                                 <img src="{{ url_for('serve_output_image', filename=result.name) }}" alt="{{ result.name }}">
                                 <div class="image-overlay">
                                     <span class="image-name">{{ result.name }}</span>
-                                    <button class="btn btn-sm btn-danger delete-btn" data-id="{{ result.image_id }}">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-warning mark-reprocess-btn" data-id="{{ result.image_id }}" title="Mark for re-processing">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                        <button class="btn btn-danger delete-btn" data-id="{{ result.image_id }}" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             {% endfor %}

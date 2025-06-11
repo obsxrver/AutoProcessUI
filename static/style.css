@@ -539,3 +539,51 @@ body {
     color: #856404;
     border-color: rgba(255, 193, 7, 0.2);
 }
+
+/* Re-processing specific styles */
+.reprocess-item {
+    border: 2px solid #ffc107;
+    position: relative;
+}
+
+.reprocess-item::before {
+    content: '↻';
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background-color: #ffc107;
+    color: #000;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 10;
+}
+
+.reprocess-item:hover {
+    border-color: #ffca2c;
+    box-shadow: 0 4px 16px rgba(255, 193, 7, 0.3);
+}
+
+/* Button group styling for result images */
+.btn-group-sm .btn {
+    padding: 2px 6px;
+    font-size: 0.7rem;
+}
+
+/* Mark reprocess button specific styling */
+.mark-reprocess-btn {
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+    color: #000;
+}
+
+.mark-reprocess-btn:hover {
+    background: linear-gradient(135deg, #ffca2c 0%, #ffa000 100%);
+    color: #000;
+    transform: translateY(-1px);
+}
