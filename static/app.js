@@ -989,9 +989,14 @@ class ComfyUIApp {
                 <img src="/outputs/${result.name}" alt="${result.name}">
                 <div class="image-overlay">
                     <span class="image-name">${result.name}</span>
-                    <button class="btn btn-sm btn-danger delete-btn" data-id="${result.image_id}">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-warning mark-reprocess-btn" data-id="${result.image_id}" title="Mark for re-processing">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                        <button class="btn btn-danger delete-btn" data-id="${result.image_id}" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             `;
             
