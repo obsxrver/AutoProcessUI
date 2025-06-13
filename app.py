@@ -402,6 +402,28 @@ class FlaskComfyUIApp:
                 })
         return all_images
     
+    def clear_comfyui_history(self):
+        """Clear ComfyUI execution history on all servers to prevent cached results"""
+        if not self.orchestrator:
+            return
+            
+        cleared_count = 0
+        for i, port in enumerate(self.orchestrator.base_ports):
+            server_url = f"http://localhost:{port}"
+            try:
+                # Clear history
+                response = requests.post(f"{server_url}/history", 
+                                       json={"clear": True})
+                if response.status_code == 200:
+                    print(f"✓ Cleared history on GPU {i} (port {port})")
+                    cleared_count += 1
+                else:
+                    print(f"✗ Failed to clear history on GPU {i} (port {port}): {response.status_code}")
+            except Exception as e:
+                print(f"✗ Error clearing history on GPU {i} (port {port}): {e}")
+        
+        return cleared_count
+    
     def clear_all_results(self):
         """Clear all results and delete files"""
         # First delete all output files
@@ -411,6 +433,12 @@ class FlaskComfyUIApp:
                     file_path.unlink()
                 except Exception as e:
                     print(f"Error deleting {file_path}: {e}")
+        
+        # Clear ComfyUI history to prevent cached results
+        if self.orchestrator:
+            print("Clearing ComfyUI execution history...")
+            cleared = self.clear_comfyui_history()
+            print(f"Cleared history on {cleared} servers")
         
         # Close any open websockets
         # Create a list copy to avoid dictionary modification during iteration
@@ -778,6 +806,12 @@ class FlaskComfyUIApp:
             if "46" in workflow_copy and "inputs" in workflow_copy["46"]:
                 workflow_copy["46"]["inputs"]["seed"] = -1
             
+            # Add a unique identifier to force fresh execution
+            # ComfyUI may cache results based on the workflow content
+            # Adding a timestamp ensures each execution is unique
+            import time
+            workflow_copy["_unique_id"] = f"{image_id}_{time.time()}"
+            
             # Queue prompt
             self.processing_status[image_id]['status'] = 'processing'
             self.processing_status[image_id]['progress'] = 10
@@ -809,6 +843,17 @@ class FlaskComfyUIApp:
                 print(f"Queued prompt {result['prompt_id']} for {original_name}")
             else:
                 print(f"Failed to queue prompt for {original_name}: {result}")
+                
+                # Check for validation errors
+                if result and 'error' in result:
+                    error_msg = result['error']
+                    if 'node_errors' in result:
+                        node_errors = result['node_errors']
+                        for node_id, errors in node_errors.items():
+                            error_msg += f"\n  Node {node_id}: {errors}"
+                    print(f"VALIDATION ERROR: {error_msg}")
+                else:
+                    error_msg = f"Unknown error: {result}"
             
             if not result or 'prompt_id' not in result:
                 error_msg = 'Failed to queue prompt'
@@ -889,6 +934,13 @@ class FlaskComfyUIApp:
                         if not outputs:
                             print(f"WARNING: No outputs found for {original_name} even though status is completed!")
                             print(f"Prompt history keys: {list(prompt_history.keys())}")
+                            
+                            # Check if execution actually happened
+                            if 'execution' not in prompt_history:
+                                print(f"ERROR: No execution data found - workflow may have been rejected or invalid!")
+                                # Check if this might be a cached result
+                                if outputs:
+                                    print(f"WARNING: Outputs present without execution - possible cached result!")
                         
                         # Download and save outputs with proper naming
                         base_name = Path(image_path).stem
@@ -982,10 +1034,19 @@ class FlaskComfyUIApp:
                         }
                     
                     elif prompt_history.get('status', {}).get('status_str') == 'error':
+                        # Extract error details
+                        error_messages = prompt_history.get('status', {}).get('messages', [])
+                        error_detail = ' '.join(str(msg) for msg in error_messages) if error_messages else 'Unknown error'
+                        
+                        print(f"ERROR: Workflow execution failed for {original_name}: {error_detail}")
+                        
                         self.processing_status[image_id]['status'] = 'error'
+                        self.processing_status[image_id]['error'] = error_detail
+                        
                         socketio.emit('status_update', {
                             'image_id': image_id,
                             'status': 'error',
+                            'error': error_detail,
                             'gpu': gpu_id,
                             'filename': original_name
                         })
@@ -1382,6 +1443,21 @@ def reprocess_images():
     reprocessing_thread.start()
     
     return jsonify({"status": "success", "message": f"Started re-processing {len(image_info_list)} images"})
+
+@app.route('/clear_history', methods=['POST'])
+def clear_history():
+    """Clear ComfyUI execution history"""
+    if batch_app.orchestrator:
+        cleared = batch_app.clear_comfyui_history()
+        return jsonify({
+            "status": "success", 
+            "message": f"Cleared history on {cleared} ComfyUI servers"
+        })
+    else:
+        return jsonify({
+            "status": "error",
+            "message": "ComfyUI orchestrator not initialized"
+        })
 
 # SocketIO Events
 @socketio.on('connect')
