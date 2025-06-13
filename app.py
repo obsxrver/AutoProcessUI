@@ -804,6 +804,12 @@ class FlaskComfyUIApp:
             async with session.post(f"{server_url}/prompt", json=payload) as resp:
                 result = await resp.json()
             
+            # Log the prompt queue result
+            if result and 'prompt_id' in result:
+                print(f"Queued prompt {result['prompt_id']} for {original_name}")
+            else:
+                print(f"Failed to queue prompt for {original_name}: {result}")
+            
             if not result or 'prompt_id' not in result:
                 error_msg = 'Failed to queue prompt'
                 print(f"Error: {error_msg} for {original_name} - Result: {result}")
@@ -878,6 +884,11 @@ class FlaskComfyUIApp:
                         # Get output images
                         outputs = prompt_history.get('outputs', {})
                         output_files = []
+                        
+                        # Check if we actually have outputs
+                        if not outputs:
+                            print(f"WARNING: No outputs found for {original_name} even though status is completed!")
+                            print(f"Prompt history keys: {list(prompt_history.keys())}")
                         
                         # Download and save outputs with proper naming
                         base_name = Path(image_path).stem
