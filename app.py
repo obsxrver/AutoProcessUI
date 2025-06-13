@@ -831,6 +831,30 @@ class FlaskComfyUIApp:
             
             prompt_id = result['prompt_id']
             
+            # Small delay to ensure prompt is registered before polling
+            await asyncio.sleep(0.5)
+            
+            # Check if the prompt is actually in the queue
+            try:
+                async with session.get(f"{server_url}/queue") as resp:
+                    queue_data = await resp.json()
+                    queue_running = queue_data.get('queue_running', [])
+                    queue_pending = queue_data.get('queue_pending', [])
+                    
+                    # Check if our prompt is in any queue
+                    in_queue = any(item[1] == prompt_id for item in queue_running) or \
+                               any(item[1] == prompt_id for item in queue_pending)
+                    
+                    if not in_queue:
+                        # Check history immediately - it might have completed very quickly
+                        history = await self.orchestrator.get_history_async(
+                            session, server_url, prompt_id
+                        )
+                        if not history or prompt_id not in history:
+                            print(f"WARNING: Prompt {prompt_id} not found in queue or history!")
+            except Exception as e:
+                print(f"Error checking queue status: {e}")
+            
             # Poll for completion with progress updates (no timeout - let it run until done)
             while True:
                 history = await self.orchestrator.get_history_async(
