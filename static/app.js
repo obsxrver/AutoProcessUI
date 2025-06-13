@@ -163,42 +163,11 @@ class ComfyUIApp {
             totalPending += count;
         }
         
-        // Show status indicator if there are pending requests or dropped previews
-        if (totalPending > 0 || this.droppedPreviews > 0) {
-            previewGallery.classList.add('preview-status');
-            
-            // Add or update status indicator
-            let statusIndicator = previewGallery.querySelector('.preview-status-indicator');
-            if (!statusIndicator) {
-                statusIndicator = document.createElement('div');
-                statusIndicator.className = 'preview-status-indicator';
-                previewGallery.prepend(statusIndicator);
-            }
-            
-            const pendingText = totalPending > 0 
-                ? `${totalPending} loading` 
-                : '';
-            const droppedText = this.droppedPreviews > 0 
-                ? `${this.droppedPreviews} dropped` 
-                : '';
-            
-            const statusParts = [pendingText, droppedText].filter(Boolean);
-            statusIndicator.textContent = `⏳ ${statusParts.join(', ')} (max 2 per GPU)`;
-            
-            // Reset dropped counter periodically
-            if (this.droppedPreviews > 0 && !this.dropResetTimer) {
-                this.dropResetTimer = setTimeout(() => {
-                    this.droppedPreviews = 0;
-                    this.dropResetTimer = null;
-                    this.updatePreviewQueueStatus();
-                }, 5000);
-            }
-        } else {
-            previewGallery.classList.remove('preview-status');
-            const statusIndicator = previewGallery.querySelector('.preview-status-indicator');
-            if (statusIndicator) {
-                statusIndicator.remove();
-            }
+        // Remove all status indicators
+        previewGallery.classList.remove('preview-status');
+        const statusIndicator = previewGallery.querySelector('.preview-status-indicator');
+        if (statusIndicator) {
+            statusIndicator.remove();
         }
     }
 
@@ -379,10 +348,6 @@ class ComfyUIApp {
                     // Clear pending requests and counters
                     this.pendingPreviewsByGpu.clear();
                     this.droppedPreviews = 0;
-                    if (this.dropResetTimer) {
-                        clearTimeout(this.dropResetTimer);
-                        this.dropResetTimer = null;
-                    }
                 } else {
                     // Clear the disabled message when enabling
                     if (previewGallery) {
@@ -431,7 +396,7 @@ class ComfyUIApp {
         document.addEventListener('click', (e) => {
             // Check if clicked on an image inside resultsGallery
             const imageItem = e.target.closest('#resultsGallery .image-item');
-            if (imageItem && !e.target.closest('.delete-btn')) {
+            if (imageItem && !e.target.closest('.btn')) {  // Changed: also exclude any button click
                 const img = imageItem.querySelector('img');
                 if (img) {
                     this.showImageModal(img.src, img.alt);
