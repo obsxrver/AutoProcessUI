@@ -431,37 +431,32 @@ class FlaskComfyUIApp:
         return {"status": "success", "message": "All results cleared"}
     
     def mark_for_reprocessing(self, image_id):
-        """Mark an image for re-processing"""
+        """Mark an image for re-processing using the original input image"""
         if image_id in self.results_cache:
             result = self.results_cache[image_id]
             
-            # Create a temporary file from the first output image to use as input
-            input_path = None
-            if result.get('output_paths'):
-                # Use the first output image as the new input
-                original_output = result['output_paths'][0]
-                if os.path.exists(original_output):
-                    # Create a copy in the temp inputs directory
-                    temp_filename = f"reprocess_{image_id}_{int(time.time())}.png"
-                    temp_path = self.temp_input_dir / temp_filename
-                    shutil.copy2(original_output, temp_path)
-                    input_path = str(temp_path)
+            # Use the original input image for re-processing
+            original_input_path = result.get('input_path')
             
-            if not input_path and result.get('input_path') and os.path.exists(result['input_path']):
-                # Fallback to original input if available
-                input_path = result['input_path']
-            
-            if input_path:
+            if original_input_path and os.path.exists(original_input_path):
+                # Create a copy in the temp inputs directory for re-processing
+                temp_filename = f"reprocess_{image_id}_{int(time.time())}.png"
+                temp_path = self.temp_input_dir / temp_filename
+                shutil.copy2(original_input_path, temp_path)
+                
+                original_name = Path(original_input_path).name
+                
                 self.reprocess_queue[image_id] = {
                     'image_id': image_id,
-                    'path': input_path,
-                    'original_name': f"reprocess_{Path(input_path).name}",
+                    'path': str(temp_path),
+                    'original_name': f"reprocess_{original_name}",
+                    'original_input_path': original_input_path,
                     'original_result': result,
                     'marked_time': time.time()
                 }
-                return {"status": "success", "message": f"Image marked for re-processing"}
+                return {"status": "success", "message": f"Original image marked for re-processing with different seed"}
             else:
-                return {"status": "error", "message": "No suitable input image found for re-processing"}
+                return {"status": "error", "message": "Original input image not found for re-processing"}
         else:
             return {"status": "error", "message": "Image not found in results"}
     
@@ -773,6 +768,15 @@ class FlaskComfyUIApp:
                 workflow_copy["10"]["inputs"]["text"] = positive_prompt
             if "15" in workflow_copy:
                 workflow_copy["15"]["inputs"]["text"] = negative_prompt
+            
+            # Set seeds to -1 for random generation (ComfyUI uses -1 for random)
+            # Update seeds in KSampler nodes (node 12 is the main sampler)
+            if "12" in workflow_copy and "inputs" in workflow_copy["12"]:
+                workflow_copy["12"]["inputs"]["noise_seed"] = -1
+            
+            # Also update seed in DetailerForEach node (node 46) if present
+            if "46" in workflow_copy and "inputs" in workflow_copy["46"]:
+                workflow_copy["46"]["inputs"]["seed"] = -1
             
             # Queue prompt
             self.processing_status[image_id]['status'] = 'processing'
