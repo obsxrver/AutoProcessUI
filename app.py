@@ -797,20 +797,18 @@ class FlaskComfyUIApp:
             if "15" in workflow_copy:
                 workflow_copy["15"]["inputs"]["text"] = negative_prompt
             
-            # Set seeds to -1 for random generation (ComfyUI uses -1 for random)
-            # Update seeds in KSampler nodes (node 12 is the main sampler)
-            if "12" in workflow_copy and "inputs" in workflow_copy["12"]:
-                workflow_copy["12"]["inputs"]["noise_seed"] = -1
+            # Force fresh execution by randomizing all seeds
+            # This ensures ComfyUI doesn't return cached results
+            import random
+            random_seed = random.randint(0, 2**32 - 1)
             
-            # Also update seed in DetailerForEach node (node 46) if present
-            if "46" in workflow_copy and "inputs" in workflow_copy["46"]:
-                workflow_copy["46"]["inputs"]["seed"] = -1
-            
-            # Add a unique identifier to force fresh execution
-            # ComfyUI may cache results based on the workflow content
-            # Adding a timestamp ensures each execution is unique
-            import time
-            workflow_copy["_unique_id"] = f"{image_id}_{time.time()}"
+            # Update all nodes that have seed inputs
+            for node_id, node_data in workflow_copy.items():
+                if isinstance(node_data, dict) and "inputs" in node_data:
+                    if "noise_seed" in node_data["inputs"]:
+                        node_data["inputs"]["noise_seed"] = random_seed
+                    if "seed" in node_data["inputs"]:
+                        node_data["inputs"]["seed"] = random_seed
             
             # Queue prompt
             self.processing_status[image_id]['status'] = 'processing'
