@@ -61,6 +61,10 @@ class FlaskComfyUIApp:
         self.temp_input_dir = Path(app.config['UPLOAD_FOLDER'])
         self.temp_input_dir.mkdir(exist_ok=True)
         
+        # Create a directory to store processed input files for re-processing
+        self.processed_inputs_dir = Path('processed_inputs')
+        self.processed_inputs_dir.mkdir(exist_ok=True)
+        
         # Load default prompts from workflow.json
         with open("workflow.json", 'r') as f:
             workflow = json.load(f)
@@ -434,6 +438,14 @@ class FlaskComfyUIApp:
                 except Exception as e:
                     print(f"Error deleting {file_path}: {e}")
         
+        # Delete preserved input files
+        if self.processed_inputs_dir.exists():
+            for file_path in self.processed_inputs_dir.glob("*"):
+                try:
+                    file_path.unlink()
+                except Exception as e:
+                    print(f"Error deleting preserved input {file_path}: {e}")
+        
         # Clear ComfyUI history to prevent cached results
         if self.orchestrator:
             print("Clearing ComfyUI execution history...")
@@ -467,16 +479,16 @@ class FlaskComfyUIApp:
             original_input_path = result.get('input_path')
             
             if original_input_path and os.path.exists(original_input_path):
-                # Create a copy in the temp inputs directory for re-processing
-                temp_filename = f"reprocess_{image_id}_{int(time.time())}.png"
-                temp_path = self.temp_input_dir / temp_filename
-                shutil.copy2(original_input_path, temp_path)
-                
+                # Get the original filename from the path
+                # Handle both temp files and preserved files
                 original_name = Path(original_input_path).name
+                # Remove the image_id prefix if it exists (for preserved files)
+                if original_name.startswith(f"{image_id}_"):
+                    original_name = original_name[len(f"{image_id}_"):]
                 
                 self.reprocess_queue[image_id] = {
                     'image_id': image_id,
-                    'path': str(temp_path),
+                    'path': original_input_path,  # Use the preserved file directly
                     'original_name': f"reprocess_{original_name}",
                     'original_input_path': original_input_path,
                     'original_result': result,
@@ -484,22 +496,14 @@ class FlaskComfyUIApp:
                 }
                 return {"status": "success", "message": f"Original image marked for re-processing with different seed"}
             else:
-                return {"status": "error", "message": "Original input image not found for re-processing"}
+                return {"status": "error", "message": f"Original input image not found at {original_input_path}"}
         else:
             return {"status": "error", "message": "Image not found in results"}
     
     def unmark_for_reprocessing(self, image_id):
         """Remove an image from re-processing queue"""
         if image_id in self.reprocess_queue:
-            # Clean up temporary file if it was created for re-processing
-            reprocess_item = self.reprocess_queue[image_id]
-            temp_path = reprocess_item['path']
-            if temp_path.startswith(str(self.temp_input_dir)) and os.path.exists(temp_path):
-                try:
-                    os.remove(temp_path)
-                except:
-                    pass
-            
+            # No need to clean up files since we're using the preserved input directly
             del self.reprocess_queue[image_id]
             return {"status": "success", "message": "Image removed from re-processing queue"}
         else:
@@ -519,14 +523,7 @@ class FlaskComfyUIApp:
     
     def clear_reprocess_queue(self):
         """Clear all images from re-processing queue"""
-        for image_id, item in list(self.reprocess_queue.items()):
-            temp_path = item['path']
-            if temp_path.startswith(str(self.temp_input_dir)) and os.path.exists(temp_path):
-                try:
-                    os.remove(temp_path)
-                except:
-                    pass
-        
+        # No need to clean up files since we're using the preserved inputs directly
         self.reprocess_queue.clear()
         return {"status": "success", "message": "Re-processing queue cleared"}
     
@@ -1024,9 +1021,19 @@ class FlaskComfyUIApp:
                             except:
                                 pass
                         
+                        # Preserve the input file for potential re-processing
+                        preserved_input_path = self.processed_inputs_dir / f"{image_id}_{Path(image_path).name}"
+                        try:
+                            shutil.copy2(image_path, preserved_input_path)
+                            preserved_input_path_str = str(preserved_input_path)
+                        except Exception as e:
+                            print(f"Warning: Failed to preserve input file for re-processing: {e}")
+                            # Fall back to original path if copy fails
+                            preserved_input_path_str = image_path
+                        
                         return {
                             'image_id': image_id,
-                            'input_path': image_path,
+                            'input_path': preserved_input_path_str,
                             'output_paths': output_files,
                             'status': 'completed'
                         }
@@ -1322,6 +1329,11 @@ def serve_preview_image(filename):
     """Serve preview images"""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+@app.route('/processed_inputs/<path:filename>')
+def serve_processed_input(filename):
+    """Serve preserved input images"""
+    return send_from_directory('processed_inputs', filename)
+
 @app.route('/delete_image/<image_id>')
 def delete_image(image_id):
     """Delete a specific processed image"""
@@ -1331,6 +1343,15 @@ def delete_image(image_id):
         for output_path in result.get('output_paths', []):
             if os.path.exists(output_path):
                 os.remove(output_path)
+        
+        # Delete preserved input file
+        input_path = result.get('input_path')
+        if input_path and os.path.exists(input_path) and str(batch_app.processed_inputs_dir) in input_path:
+            try:
+                os.remove(input_path)
+            except Exception as e:
+                print(f"Error deleting preserved input {input_path}: {e}")
+        
         del batch_app.results_cache[image_id]
         
         if image_id in batch_app.processing_status:
@@ -1421,14 +1442,7 @@ def reprocess_images():
                 'failed': len([r for r in results if not r])
             })
             
-            # Clean up temp files used for re-processing
-            for _, info in reprocess_items:
-                temp_path = info['path']
-                if temp_path.startswith(str(batch_app.temp_input_dir)) and os.path.exists(temp_path):
-                    try:
-                        os.remove(temp_path)
-                    except:
-                        pass
+            # No need to clean up temp files since we're using preserved inputs
                         
         except Exception as e:
             print(f"Error during re-processing: {e}")
@@ -1477,6 +1491,7 @@ if __name__ == '__main__':
     # Create required directories
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
+    os.makedirs('processed_inputs', exist_ok=True)
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static', exist_ok=True)
     
