@@ -22,7 +22,7 @@
   },
   "9": {
     "inputs": {
-      "ckpt_name": "epicrealism.safetensors"
+      "ckpt_name": "juggernaut-ragnarok.safetensors"
     },
     "class_type": "CheckpointLoaderSimple",
     "_meta": {
