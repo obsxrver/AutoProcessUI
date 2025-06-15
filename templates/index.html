@@ -75,6 +75,104 @@
                     </div>
                 </div>
 
+                <!-- Model & Settings Section -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cogs"></i> Model & Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Model Selection -->
+                        <div class="mb-3">
+                            <label for="modelSelect" class="form-label">Model</label>
+                            <select class="form-select" id="modelSelect">
+                                <option value="epicrealism.safetensors">Loading models...</option>
+                            </select>
+                        </div>
+
+                        <!-- Main Sampler Settings -->
+                        <h6 class="mt-4 mb-3"><i class="fas fa-sliders-h"></i> Main Sampler</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="mainSteps" class="form-label">Steps</label>
+                                    <input type="number" class="form-control" id="mainSteps" value="80" min="1" max="150">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="mainCfg" class="form-label">CFG Scale</label>
+                                    <input type="number" class="form-control" id="mainCfg" value="4.0" min="1" max="30" step="0.1">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="mainSampler" class="form-label">Sampler</label>
+                                    <select class="form-select" id="mainSampler">
+                                        <option value="dpmpp_2m_sde_gpu">Loading...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="mainScheduler" class="form-label">Scheduler</label>
+                                    <select class="form-select" id="mainScheduler">
+                                        <option value="karras">Loading...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Refiner Settings -->
+                        <h6 class="mt-4 mb-3"><i class="fas fa-magic"></i> Refiner</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="refinerSteps" class="form-label">Steps</label>
+                                    <input type="number" class="form-control" id="refinerSteps" value="80" min="1" max="150">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="refinerCfg" class="form-label">CFG Scale</label>
+                                    <input type="number" class="form-control" id="refinerCfg" value="4.0" min="1" max="30" step="0.1">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="refinerCycles" class="form-label">Cycles</label>
+                                    <input type="number" class="form-control" id="refinerCycles" value="2" min="1" max="10">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="refinerSampler" class="form-label">Sampler</label>
+                                    <select class="form-select" id="refinerSampler">
+                                        <option value="dpmpp_2m_sde_gpu">Loading...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="refinerScheduler" class="form-label">Scheduler</label>
+                                    <select class="form-select" id="refinerScheduler">
+                                        <option value="karras">Loading...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="refinerDenoise" class="form-label">Denoise</label>
+                                    <input type="number" class="form-control" id="refinerDenoise" value="0.4" min="0.1" max="1.0" step="0.05">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Processing Controls -->
                 <div class="card mb-3">
                     <div class="card-header">

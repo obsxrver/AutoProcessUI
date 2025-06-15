@@ -556,7 +556,8 @@ class FlaskComfyUIApp:
     async def process_batch_with_live_updates(self, image_info_list: List[Dict], 
                                             positive_prompt: str, 
                                             negative_prompt: str,
-                                            save_unrefined: bool):
+                                            save_unrefined: bool,
+                                            custom_settings: Dict = None):
         """Process batch of images with live updates via SocketIO"""
         # Reset stop flag at start of processing
         self.stop_processing = False
@@ -615,24 +616,35 @@ class FlaskComfyUIApp:
                 
                 task = self.process_single_image_with_socketio_updates(
                     session, gpu_id, file_path, original_name, 
-                    positive_prompt, negative_prompt, image_id, save_unrefined
+                    positive_prompt, negative_prompt, image_id, save_unrefined, custom_settings
                 )
                 tasks.append(task)
             
             # Process with live updates
             completed_count = 0
+            # Create a list of pending tasks to track better
+            pending_tasks = list(tasks)
+            
             for task_future in asyncio.as_completed(tasks):
                 if self.stop_processing:
-                    # Cancel remaining tasks
-                    for t in tasks:
+                    print(f"Stop processing requested. Cancelling {len(pending_tasks) - completed_count} remaining tasks...")
+                    # Cancel remaining tasks more aggressively
+                    for t in pending_tasks:
                         if not t.done():
                             try:
                                 t.cancel()
-                                await t
-                            except asyncio.CancelledError:
-                                pass
                             except Exception as e:
                                 print(f"Error cancelling task: {e}")
+                    
+                    # Wait for tasks to actually cancel
+                    for t in pending_tasks:
+                        if not t.done():
+                            try:
+                                await asyncio.wait_for(t, timeout=2.0)
+                            except (asyncio.CancelledError, asyncio.TimeoutError):
+                                pass
+                            except Exception as e:
+                                print(f"Error waiting for task cancellation: {e}")
                     
                     # Close websocket connections - create a copy to avoid modification during iteration
                     ws_list = list(self.ws_connections.values())
@@ -644,16 +656,18 @@ class FlaskComfyUIApp:
                     self.ws_connections.clear()
                     
                     # Update status for remaining images
-                    for image_data in image_info_list[completed_count:]:
-                        image_id = image_data['image_id']
-                        if image_id in self.processing_status:
-                            self.processing_status[image_id]['status'] = 'cancelled'
-                            socketio.emit('status_update', {
-                                'image_id': image_id,
-                                'status': 'cancelled',
-                                'progress': 0
-                            })
+                    for i, image_data in enumerate(image_info_list):
+                        if i >= completed_count:  # Images that haven't completed yet
+                            image_id = image_data['image_id']
+                            if image_id in self.processing_status:
+                                self.processing_status[image_id]['status'] = 'cancelled'
+                                socketio.emit('status_update', {
+                                    'image_id': image_id,
+                                    'status': 'cancelled',
+                                    'progress': 0
+                                })
                     
+                    print(f"Processing stopped. Completed: {completed_count}, Total: {len(tasks)}")
                     socketio.emit('batch_stopped', {
                         'completed': completed_count,
                         'total': len(tasks)
@@ -713,7 +727,7 @@ class FlaskComfyUIApp:
     
     async def process_single_image_with_socketio_updates(self, session, gpu_id, image_path, 
                                                original_name, positive_prompt, negative_prompt, 
-                                               image_id, save_unrefined: bool):
+                                               image_id, save_unrefined: bool, custom_settings: Dict = None):
         """Process a single image and provide SocketIO status updates"""
         server_url = f"http://localhost:{self.orchestrator.base_ports[gpu_id]}"
         
@@ -785,14 +799,45 @@ class FlaskComfyUIApp:
                 
                 return None
             
-            # Modify workflow with custom prompts
+            # Modify workflow with custom prompts and settings
             workflow_copy = self.orchestrator.modify_workflow_for_image(upload_result['name'])
+            
+            # Use default settings if custom_settings not provided
+            if custom_settings is None:
+                custom_settings = {
+                    'model': 'juggernaut-ragnarok.safetensors',
+                    'main_steps': 80, 'main_cfg': 4.0,
+                    'main_sampler': 'dpmpp_2m_sde_gpu', 'main_scheduler': 'karras',
+                    'refiner_steps': 80, 'refiner_cfg': 4.0,
+                    'refiner_sampler': 'dpmpp_2m_sde_gpu', 'refiner_scheduler': 'karras',
+                    'refiner_denoise': 0.4, 'refiner_cycles': 2
+                }
             
             # Update prompts in the workflow
             if "10" in workflow_copy:
                 workflow_copy["10"]["inputs"]["text"] = positive_prompt
             if "15" in workflow_copy:
                 workflow_copy["15"]["inputs"]["text"] = negative_prompt
+            
+            # Update model selection (node 9 - CheckpointLoaderSimple)
+            if "9" in workflow_copy:
+                workflow_copy["9"]["inputs"]["ckpt_name"] = custom_settings['model']
+            
+            # Update main sampler settings (node 12 - KSamplerAdvanced)
+            if "12" in workflow_copy:
+                workflow_copy["12"]["inputs"]["steps"] = custom_settings['main_steps']
+                workflow_copy["12"]["inputs"]["cfg"] = custom_settings['main_cfg']
+                workflow_copy["12"]["inputs"]["sampler_name"] = custom_settings['main_sampler']
+                workflow_copy["12"]["inputs"]["scheduler"] = custom_settings['main_scheduler']
+            
+            # Update refiner settings (node 46 - DetailerForEach)
+            if "46" in workflow_copy:
+                workflow_copy["46"]["inputs"]["steps"] = custom_settings['refiner_steps']
+                workflow_copy["46"]["inputs"]["cfg"] = custom_settings['refiner_cfg']
+                workflow_copy["46"]["inputs"]["sampler_name"] = custom_settings['refiner_sampler']
+                workflow_copy["46"]["inputs"]["scheduler"] = custom_settings['refiner_scheduler']
+                workflow_copy["46"]["inputs"]["denoise"] = custom_settings['refiner_denoise']
+                workflow_copy["46"]["inputs"]["cycle"] = custom_settings['refiner_cycles']
             
             # Force fresh execution by randomizing all seeds
             # This ensures ComfyUI doesn't return cached results
@@ -1162,6 +1207,54 @@ def index():
                          default_negative=batch_app.default_negative,
                          cuda_devices=batch_app.detect_cuda_devices())
 
+@app.route('/get_models')
+def get_models():
+    """Get available models from ComfyUI"""
+    try:
+        if batch_app.orchestrator is None:
+            batch_app.initialize_orchestrator()
+        
+        # Get models from first available server
+        server_url = f"http://localhost:{batch_app.orchestrator.base_ports[0]}"
+        response = requests.get(f"{server_url}/object_info", timeout=10)
+        
+        if response.status_code == 200:
+            object_info = response.json()
+            
+            # Extract checkpoint models
+            checkpoints = []
+            if "CheckpointLoaderSimple" in object_info:
+                checkpoint_info = object_info["CheckpointLoaderSimple"]["input"]["required"]
+                if "ckpt_name" in checkpoint_info:
+                    checkpoints = checkpoint_info["ckpt_name"][0]
+            
+            # Extract samplers
+            samplers = []
+            schedulers = []
+            if "KSamplerAdvanced" in object_info:
+                sampler_info = object_info["KSamplerAdvanced"]["input"]["required"]
+                if "sampler_name" in sampler_info:
+                    samplers = sampler_info["sampler_name"][0]
+                if "scheduler" in sampler_info:
+                    schedulers = sampler_info["scheduler"][0]
+            
+            return jsonify({
+                "status": "success",
+                "models": checkpoints,
+                "samplers": samplers,
+                "schedulers": schedulers
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": f"Failed to get models: HTTP {response.status_code}"
+            })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Error getting models: {str(e)}"
+        })
+
 @app.route('/upload', methods=['POST'])
 def upload_files():
     """Handle file uploads"""
@@ -1191,7 +1284,22 @@ def process_images():
     data = request.get_json()
     positive_prompt = data.get('positive_prompt', batch_app.default_positive)
     negative_prompt = data.get('negative_prompt', batch_app.default_negative)
-    save_unrefined = data.get('save_unrefined', True)  # Default to True for backward compatibility
+    save_unrefined = data.get('save_unrefined', True)
+    
+    # Extract custom parameters
+    custom_settings = {
+        'model': data.get('model', 'juggernaut-ragnarok.safetensors'),
+        'main_steps': data.get('main_steps', 80),
+        'main_cfg': data.get('main_cfg', 4.0),
+        'main_sampler': data.get('main_sampler', 'dpmpp_2m_sde_gpu'),
+        'main_scheduler': data.get('main_scheduler', 'karras'),
+        'refiner_steps': data.get('refiner_steps', 80),
+        'refiner_cfg': data.get('refiner_cfg', 4.0),
+        'refiner_sampler': data.get('refiner_sampler', 'dpmpp_2m_sde_gpu'),
+        'refiner_scheduler': data.get('refiner_scheduler', 'karras'),
+        'refiner_denoise': data.get('refiner_denoise', 0.4),
+        'refiner_cycles': data.get('refiner_cycles', 2)
+    }
     
     if not batch_app.upload_queue:
         return jsonify({"status": "error", "message": "No images in upload queue"})
@@ -1226,7 +1334,7 @@ def process_images():
         try:
             results = loop.run_until_complete(
                 batch_app.process_batch_with_live_updates(
-                    image_info_list, positive_prompt, negative_prompt, save_unrefined
+                    image_info_list, positive_prompt, negative_prompt, save_unrefined, custom_settings
                 )
             )
             
@@ -1396,6 +1504,21 @@ def reprocess_images():
     negative_prompt = data.get('negative_prompt', batch_app.default_negative)
     save_unrefined = data.get('save_unrefined', True)
     
+    # Extract custom parameters
+    custom_settings = {
+        'model': data.get('model', 'juggernaut-ragnarok.safetensors'),
+        'main_steps': data.get('main_steps', 80),
+        'main_cfg': data.get('main_cfg', 4.0),
+        'main_sampler': data.get('main_sampler', 'dpmpp_2m_sde_gpu'),
+        'main_scheduler': data.get('main_scheduler', 'karras'),
+        'refiner_steps': data.get('refiner_steps', 80),
+        'refiner_cfg': data.get('refiner_cfg', 4.0),
+        'refiner_sampler': data.get('refiner_sampler', 'dpmpp_2m_sde_gpu'),
+        'refiner_scheduler': data.get('refiner_scheduler', 'karras'),
+        'refiner_denoise': data.get('refiner_denoise', 0.4),
+        'refiner_cycles': data.get('refiner_cycles', 2)
+    }
+    
     if not batch_app.reprocess_queue:
         return jsonify({"status": "error", "message": "No images in re-processing queue"})
     
@@ -1431,7 +1554,7 @@ def reprocess_images():
         try:
             results = loop.run_until_complete(
                 batch_app.process_batch_with_live_updates(
-                    image_info_list, positive_prompt, negative_prompt, save_unrefined
+                    image_info_list, positive_prompt, negative_prompt, save_unrefined, custom_settings
                 )
             )
             

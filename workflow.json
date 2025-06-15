@@ -22,7 +22,7 @@
   },
   "9": {
     "inputs": {
-      "ckpt_name": "juggernaut-ragnarok.safetensors"
+      "ckpt_name": "epicrealism.safetensors"
     },
     "class_type": "CheckpointLoaderSimple",
     "_meta": {
@@ -418,7 +418,7 @@
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 0.4000000000000001,
+      "denoise": 0.4,
       "feather": 8,
       "noise_mask": true,
       "force_inpaint": true,

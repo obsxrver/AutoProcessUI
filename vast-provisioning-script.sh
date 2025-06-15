@@ -41,6 +41,7 @@ WORKFLOWS=(
 
 CHECKPOINT_MODELS=(
     "https://civitai.com/api/download/models/1759168"
+    "https://civitai.com/api/download/models/1522905"
 )
 
 UNET_MODELS=(
@@ -134,6 +135,9 @@ function provisioning_start() {
     cd ${COMFYUI_DIR}/models/checkpoints
     if [ ! -f "juggernaut-ragnarok.safetensors" ]; then
         wget -c https://civitai.com/api/download/models/1759168 -O juggernaut-ragnarok.safetensors
+    fi
+    if [ ! -f "epicrealism.safetensors" ]; then
+        wget -c https://civitai.com/api/download/models/1522905 -O epicrealism.safetensors
     fi
     
     # Install pip packages

@@ -31,6 +31,7 @@ class ComfyUIApp {
         this.setupDragAndDrop();
         this.setupKeyboardShortcuts();
         this.startStatusPolling();
+        this.loadAvailableModels();
     }
 
     loadUserPreferences() {
@@ -575,18 +576,14 @@ class ComfyUIApp {
         const positivePrompt = document.getElementById('positivePrompt').value;
         const negativePrompt = document.getElementById('negativePrompt').value;
         const saveUnrefined = document.getElementById('saveUnrefinedToggle').checked;
+        
+        // Get custom settings from the form
+        const customSettings = this.getCustomSettings();
 
         try {
             this.setLoading('processBtn', true);
             this.updateStatus('Starting processing...');
             this.isProcessing = true;
-            
-            // Show stop button
-            const processBtn = document.getElementById('processBtn');
-            processBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Processing';
-            processBtn.classList.remove('btn-success');
-            processBtn.classList.add('btn-danger');
-            processBtn.onclick = () => this.stopProcessing();
             
             const response = await fetch('/process', {
                 method: 'POST',
@@ -596,7 +593,8 @@ class ComfyUIApp {
                 body: JSON.stringify({
                     positive_prompt: positivePrompt,
                     negative_prompt: negativePrompt,
-                    save_unrefined: saveUnrefined
+                    save_unrefined: saveUnrefined,
+                    ...customSettings
                 })
             });
 
@@ -605,6 +603,7 @@ class ComfyUIApp {
             if (result.status === 'success') {
                 this.showNotification('Processing Started', result.message, 'success');
                 this.showProgressBar();
+                this.setProcessingState(true);
             } else {
                 this.showNotification('Processing Error', result.message, 'danger');
                 this.resetProcessButton();
@@ -645,11 +644,43 @@ class ComfyUIApp {
         }
     }
 
+    getCustomSettings() {
+        return {
+            model: document.getElementById('modelSelect')?.value || 'epicrealism.safetensors',
+            main_steps: parseInt(document.getElementById('mainSteps')?.value) || 80,
+            main_cfg: parseFloat(document.getElementById('mainCfg')?.value) || 4.0,
+            main_sampler: document.getElementById('mainSampler')?.value || 'dpmpp_2m_sde_gpu',
+            main_scheduler: document.getElementById('mainScheduler')?.value || 'karras',
+            refiner_steps: parseInt(document.getElementById('refinerSteps')?.value) || 80,
+            refiner_cfg: parseFloat(document.getElementById('refinerCfg')?.value) || 4.0,
+            refiner_sampler: document.getElementById('refinerSampler')?.value || 'dpmpp_2m_sde_gpu',
+            refiner_scheduler: document.getElementById('refinerScheduler')?.value || 'karras',
+            refiner_denoise: parseFloat(document.getElementById('refinerDenoise')?.value) || 0.4,
+            refiner_cycles: parseInt(document.getElementById('refinerCycles')?.value) || 2
+        };
+    }
+
+    setProcessingState(processing) {
+        this.isProcessing = processing;
+        const processBtn = document.getElementById('processBtn');
+        
+        if (processing) {
+            // Show stop button with enhanced styling
+            processBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Processing';
+            processBtn.classList.remove('btn-success');
+            processBtn.classList.add('btn-danger', 'processing');
+            processBtn.disabled = false;
+            processBtn.onclick = () => this.stopProcessing();
+        } else {
+            this.resetProcessButton();
+        }
+    }
+
     resetProcessButton() {
         this.isProcessing = false;
         const processBtn = document.getElementById('processBtn');
         processBtn.innerHTML = '<i class="fas fa-play"></i> Process Images';
-        processBtn.classList.remove('btn-danger');
+        processBtn.classList.remove('btn-danger', 'processing');
         processBtn.classList.add('btn-success');
         processBtn.disabled = false;
         processBtn.onclick = () => this.startProcessing();
@@ -787,6 +818,9 @@ class ComfyUIApp {
         const positivePrompt = document.getElementById('positivePrompt').value;
         const negativePrompt = document.getElementById('negativePrompt').value;
         const saveUnrefined = document.getElementById('saveUnrefinedToggle').checked;
+        
+        // Get custom settings from the form
+        const customSettings = this.getCustomSettings();
 
         try {
             this.setLoading('reprocessBtn', true);
@@ -795,7 +829,6 @@ class ComfyUIApp {
             
             // Show stop button
             const reprocessBtn = document.getElementById('reprocessBtn');
-            const originalText = reprocessBtn.innerHTML;
             reprocessBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Re-processing';
             reprocessBtn.classList.remove('btn-warning');
             reprocessBtn.classList.add('btn-danger');
@@ -809,7 +842,8 @@ class ComfyUIApp {
                 body: JSON.stringify({
                     positive_prompt: positivePrompt,
                     negative_prompt: negativePrompt,
-                    save_unrefined: saveUnrefined
+                    save_unrefined: saveUnrefined,
+                    ...customSettings
                 })
             });
 
@@ -1146,7 +1180,8 @@ class ComfyUIApp {
 
     handleBatchComplete(data) {
         this.hideProgressBar();
-        this.resetProcessButton();
+        this.setProcessingState(false);
+        this.resetReprocessButton();
         
         const message = `Batch complete! Processed: ${data.total_processed}, Completed: ${data.completed}, Failed: ${data.failed}`;
         this.updateStatus(message);
@@ -1158,7 +1193,8 @@ class ComfyUIApp {
 
     handleBatchStopped(data) {
         this.hideProgressBar();
-        this.resetProcessButton();
+        this.setProcessingState(false);
+        this.resetReprocessButton();
         
         const message = `Batch stopped! Completed: ${data.completed}/${data.total} images`;
         this.updateStatus(message);
@@ -1389,6 +1425,74 @@ class ComfyUIApp {
         // Only show if not already shown
         if (!modal._isShown) {
             modal.show();
+        }
+    }
+
+    async loadAvailableModels() {
+        try {
+            const response = await fetch('/get_models');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Populate model dropdown
+                const modelSelect = document.getElementById('modelSelect');
+                if (modelSelect) {
+                    modelSelect.innerHTML = '';
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        if (model === 'epicrealism.safetensors') {
+                            option.selected = true;
+                        }
+                        modelSelect.appendChild(option);
+                    });
+                }
+                
+                // Populate sampler dropdowns
+                const samplerSelects = ['mainSampler', 'refinerSampler'];
+                samplerSelects.forEach(id => {
+                    const select = document.getElementById(id);
+                    if (select) {
+                        select.innerHTML = '';
+                        data.samplers.forEach(sampler => {
+                            const option = document.createElement('option');
+                            option.value = sampler;
+                            option.textContent = sampler;
+                            if (sampler === 'dpmpp_2m_sde_gpu') {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                    }
+                });
+                
+                // Populate scheduler dropdowns
+                const schedulerSelects = ['mainScheduler', 'refinerScheduler'];
+                schedulerSelects.forEach(id => {
+                    const select = document.getElementById(id);
+                    if (select) {
+                        select.innerHTML = '';
+                        data.schedulers.forEach(scheduler => {
+                            const option = document.createElement('option');
+                            option.value = scheduler;
+                            option.textContent = scheduler;
+                            if (scheduler === 'karras') {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                    }
+                });
+                
+                console.log('Models and samplers loaded successfully');
+            } else {
+                console.warn('Failed to load models:', data.message);
+                this.showNotification('Warning', 'Failed to load available models. Using defaults.', 'warning');
+            }
+        } catch (error) {
+            console.error('Error loading models:', error);
+            this.showNotification('Warning', 'Failed to load available models. Using defaults.', 'warning');
         }
     }
 }
