@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "image": "meloinatu_1730082587_3488508043204632052_17143090401.jpg"
+      "image": "cam.sowards_1658695458_2889669402926039137_5556887208.jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -31,7 +31,7 @@
   },
   "10": {
     "inputs": {
-      "text": "blue shirt, highly detailed",
+      "text": "",
       "clip": [
         "9",
         1
@@ -66,7 +66,7 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 785883497622424,
+      "noise_seed": 1084466118664567,
       "steps": 80,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -413,12 +413,12 @@
       "guide_size": 1024,
       "guide_size_for": false,
       "max_size": 2048,
-      "seed": 902546195183490,
+      "seed": 438470424007701,
       "steps": 80,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 0.4,
+      "denoise": 0.4000000000000001,
       "feather": 8,
       "noise_mask": true,
       "force_inpaint": true,
@@ -522,7 +522,7 @@
   },
   "54": {
     "inputs": {
-      "Hair": true,
+      "Hair": false,
       "Glasses": false,
       "Top-clothes": false,
       "Bottom-clothes": false,
