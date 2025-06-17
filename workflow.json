@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "image": "cam.sowards_1658695458_2889669402926039137_5556887208.jpg"
+      "image": "alivia._.garrett_1735661149_3535304413602529674_53171926819.jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -608,7 +608,7 @@
   "59": {
     "inputs": {
       "hat": false,
-      "glasses": true,
+      "glasses": false,
       "headband, head covering, hair accessory": false,
       "scarf": true,
       "tie": true,
