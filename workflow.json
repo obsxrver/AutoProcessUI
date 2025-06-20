@@ -1,7 +1,7 @@
 {
   "1": {
     "inputs": {
-      "image": "alivia._.garrett_1735661149_3535304413602529674_53171926819.jpg"
+      "image": "example.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -66,7 +66,7 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 1084466118664567,
+      "noise_seed": 1017754638717721,
       "steps": 80,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -126,7 +126,7 @@
   },
   "15": {
     "inputs": {
-      "text": "blurry, low quality, worst quality, wrong anatomy, obese, censored, clothes",
+      "text": "blurry, low quality, worst quality",
       "clip": [
         "9",
         1
@@ -144,28 +144,6 @@
     "class_type": "SAM2ModelLoader (segment anything2)",
     "_meta": {
       "title": "SAM2ModelLoader (segment anything2)"
-    }
-  },
-  "17": {
-    "inputs": {
-      "prompt": "garment",
-      "threshold": 0.30000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
     }
   },
   "18": {
@@ -213,28 +191,6 @@
       "title": "String (Multiline)"
     }
   },
-  "29": {
-    "inputs": {
-      "prompt": "pants",
-      "threshold": 0.30000000000000004,
-      "sam_model": [
-        "16",
-        0
-      ],
-      "grounding_dino_model": [
-        "18",
-        0
-      ],
-      "image": [
-        "1",
-        0
-      ]
-    },
-    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
-    "_meta": {
-      "title": "GroundingDinoSAM2Segment (segment anything2)"
-    }
-  },
   "30": {
     "inputs": {
       "prompt": "vest",
@@ -279,25 +235,6 @@
       "title": "GroundingDinoSAM2Segment (segment anything2)"
     }
   },
-  "32": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "operation": "add",
-      "destination": [
-        "17",
-        1
-      ],
-      "source": [
-        "29",
-        1
-      ]
-    },
-    "class_type": "MaskComposite",
-    "_meta": {
-      "title": "MaskComposite"
-    }
-  },
   "33": {
     "inputs": {
       "x": 0,
@@ -323,8 +260,8 @@
       "y": 0,
       "operation": "add",
       "destination": [
-        "32",
-        0
+        "65",
+        1
       ],
       "source": [
         "33",
@@ -413,7 +350,7 @@
       "guide_size": 1024,
       "guide_size_for": false,
       "max_size": 2048,
-      "seed": 438470424007701,
+      "seed": 143376788858175,
       "steps": 80,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -495,7 +432,7 @@
       "combined": false,
       "crop_factor": 1.4000000000000001,
       "bbox_fill": false,
-      "drop_size": 50,
+      "drop_size": 128,
       "contour_fill": false,
       "mask": [
         "19",
@@ -582,7 +519,7 @@
       "tights, stockings": false,
       "sock": true,
       "shoe": true,
-      "process_res": 512,
+      "process_res": 1024,
       "mask_blur": 8,
       "mask_offset": 0,
       "invert_output": false,
@@ -625,16 +562,16 @@
       "pocket": true,
       "buckle": true,
       "zipper": true,
-      "applique": true,
+      "applique": false,
       "bow": true,
       "flower": true,
       "bead": true,
-      "fringe": true,
+      "fringe": false,
       "ribbon": true,
       "rivet": true,
       "ruffle": true,
       "sequin": true,
-      "tassel": true
+      "tassel": false
     },
     "class_type": "FashionSegmentAccessories",
     "_meta": {
@@ -686,6 +623,86 @@
     "class_type": "GrowMask",
     "_meta": {
       "title": "GrowMask"
+    }
+  },
+  "63": {
+    "inputs": {
+      "mask": [
+        "57",
+        1
+      ]
+    },
+    "class_type": "AILab_MaskPreview",
+    "_meta": {
+      "title": "Mask Preview (RMBG) 🎭"
+    }
+  },
+  "65": {
+    "inputs": {
+      "Hair": false,
+      "Glasses": false,
+      "Top-clothes": true,
+      "Bottom-clothes": true,
+      "Torso-skin": false,
+      "Face": false,
+      "Left-arm": false,
+      "Right-arm": false,
+      "Left-leg": false,
+      "Right-leg": false,
+      "Left-foot": false,
+      "Right-foot": false,
+      "mask_blur": 6,
+      "mask_offset": 0,
+      "invert_output": false,
+      "background": "Alpha",
+      "images": [
+        "1",
+        0
+      ],
+      "background_color": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "BodySegment",
+    "_meta": {
+      "title": "Body Part Segmentation (RMBG)"
+    }
+  },
+  "66": {
+    "inputs": {
+      "mask": [
+        "65",
+        1
+      ]
+    },
+    "class_type": "AILab_MaskPreview",
+    "_meta": {
+      "title": "Mask Preview (RMBG) 🎭"
+    }
+  },
+  "67": {
+    "inputs": {
+      "mask": [
+        "31",
+        1
+      ]
+    },
+    "class_type": "AILab_MaskPreview",
+    "_meta": {
+      "title": "Mask Preview (RMBG) 🎭"
+    }
+  },
+  "68": {
+    "inputs": {
+      "mask": [
+        "30",
+        1
+      ]
+    },
+    "class_type": "AILab_MaskPreview",
+    "_meta": {
+      "title": "Mask Preview (RMBG) 🎭"
     }
   }
 }
