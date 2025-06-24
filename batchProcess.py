@@ -52,7 +52,8 @@ class ComfyUIMultiGPU:
                 '--port', str(self.base_ports[i]),
                 '--highvram',
                 '--disable-auto-launch',
-                '--listen', '0.0.0.0'  # Allow connections from any IP
+                '--listen', '0.0.0.0',  # Allow connections from any IP
+                '--preview-method', 'latent2rgb'
             ]
             
             print(f"Starting ComfyUI on GPU {i}, port {self.base_ports[i]}")

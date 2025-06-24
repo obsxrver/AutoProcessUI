@@ -35,7 +35,7 @@ def test_custom_settings():
         'positive_prompt': 'test prompt',
         'negative_prompt': 'test negative',
         'save_unrefined': True,
-        'model': 'epicrealism.safetensors',
+        'model': 'juggernaut-ragnarok.safetensors',
         'main_steps': 20,
         'main_cfg': 7.0,
         'main_sampler': 'euler',

@@ -646,7 +646,7 @@ class ComfyUIApp {
 
     getCustomSettings() {
         return {
-            model: document.getElementById('modelSelect')?.value || 'epicrealism.safetensors',
+            model: document.getElementById('modelSelect')?.value || 'juggernaut-ragnarok.safetensors',
             main_steps: parseInt(document.getElementById('mainSteps')?.value) || 80,
             main_cfg: parseFloat(document.getElementById('mainCfg')?.value) || 4.0,
             main_sampler: document.getElementById('mainSampler')?.value || 'dpmpp_2m_sde_gpu',
@@ -1442,7 +1442,7 @@ class ComfyUIApp {
                         const option = document.createElement('option');
                         option.value = model;
                         option.textContent = model;
-                        if (model === 'epicrealism.safetensors') {
+                        if (model === 'juggernaut-ragnarok.safetensors') {
                             option.selected = true;
                         }
                         modelSelect.appendChild(option);

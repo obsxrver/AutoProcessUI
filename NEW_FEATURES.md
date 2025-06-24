@@ -72,7 +72,7 @@ This update adds comprehensive model selection and parameter tuning capabilities
 The interface provides sensible defaults based on the original workflow:
 
 ```
-Model: epicrealism.safetensors
+Model: juggernaut-ragnarok.safetensors
 Main Sampler:
   - Steps: 80
   - CFG: 4.0  
