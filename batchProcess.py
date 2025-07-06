@@ -361,7 +361,7 @@ if __name__ == "__main__":
     
     # Wait a bit more for all servers to fully initialize
     print("Waiting for servers to initialize...")
-    time.sleep(15)
+    #time.sleep(15)
     
     # Prepare list of images to process
     input_dir = "/workspace/ComfyUI/input"  # Adjust to your input directory

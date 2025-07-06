@@ -66,8 +66,8 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 1017754638717721,
-      "steps": 80,
+      "noise_seed": 546198448890225,
+      "steps": 81,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
@@ -115,7 +115,7 @@
   "14": {
     "inputs": {
       "images": [
-        "13",
+        "69",
         0
       ]
     },
@@ -173,7 +173,7 @@
     "inputs": {
       "filename_prefix": "ComfyUI",
       "images": [
-        "13",
+        "69",
         0
       ]
     },
@@ -350,7 +350,7 @@
       "guide_size": 1024,
       "guide_size_for": false,
       "max_size": 2048,
-      "seed": 143376788858175,
+      "seed": 824180996846900,
       "steps": 80,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -366,7 +366,7 @@
       "tiled_encode": false,
       "tiled_decode": false,
       "image": [
-        "13",
+        "69",
         0
       ],
       "segs": [
@@ -703,6 +703,29 @@
     "class_type": "AILab_MaskPreview",
     "_meta": {
       "title": "Mask Preview (RMBG) 🎭"
+    }
+  },
+  "69": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "1",
+        0
+      ],
+      "source": [
+        "13",
+        0
+      ],
+      "mask": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "ImageCompositeMasked"
     }
   }
 }
