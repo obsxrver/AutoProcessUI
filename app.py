@@ -429,7 +429,16 @@ class FlaskComfyUIApp:
         return cleared_count
     
     def clear_all_results(self):
-        """Clear all results and delete files"""
+        """Clear all results, queues, and reset application state."""
+        # Stop any ongoing processing
+        self.stop_processing = True
+        print("Attempting to stop any active processing...")
+        time.sleep(1) # Give a moment for processing threads to see the flag
+
+        # Clear all queues (which also deletes temp files)
+        self.clear_upload_queue()
+        self.clear_reprocess_queue()
+        
         # First delete all output files
         if self.output_dir.exists():
             for file_path in self.output_dir.glob("*.png"):
@@ -466,9 +475,15 @@ class FlaskComfyUIApp:
         self.results_cache.clear()
         self.processing_status.clear()
         self.preview_images.clear()
-        self.reprocess_queue.clear()
         
-        return {"status": "success", "message": "All results cleared"}
+        # Reset final status attributes
+        self.final_status = None
+        self.final_archive = None
+
+        # Finally, reset the stop flag for future batches
+        self.stop_processing = False
+        
+        return {"status": "success", "message": "Application has been reset to its initial state."}
     
     def mark_for_reprocessing(self, image_id):
         """Mark an image for re-processing using the original input image"""

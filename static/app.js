@@ -304,9 +304,9 @@ class ComfyUIApp {
             this.startProcessing();
         });
 
-        // Clear all results button
-        document.getElementById('clearAllBtn').addEventListener('click', () => {
-            this.clearAllResults();
+        // Reset button
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            this.resetApplication();
         });
 
         // Refresh button
@@ -399,9 +399,23 @@ class ComfyUIApp {
             const imageItem = e.target.closest('#resultsGallery .image-item');
             if (imageItem && !e.target.closest('.btn')) {  // Changed: also exclude any button click
                 const img = imageItem.querySelector('img');
+                const imageId = imageItem.dataset.id;
                 if (img) {
-                    this.showImageModal(img.src, img.alt);
+                    this.showImageModal(img.src, img.alt, imageId);
                 }
+            }
+        });
+
+        // Modal delete button
+        document.getElementById('modalDeleteBtn').addEventListener('click', (e) => {
+            const imageId = e.currentTarget.dataset.id;
+            if (imageId) {
+                const modalElement = document.getElementById('imageModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                }
+                this.deleteImage(imageId);
             }
         });
 
@@ -474,6 +488,9 @@ class ComfyUIApp {
                     this.navigateImage('prev');
                 } else if (e.key === 'ArrowRight') {
                     this.navigateImage('next');
+                } else if (e.key === 'Delete') {
+                    e.preventDefault();
+                    document.getElementById('modalDeleteBtn').click();
                 }
             }
         });
@@ -483,22 +500,28 @@ class ComfyUIApp {
         const currentImage = document.getElementById('modalImage');
         const currentSrc = currentImage.src;
         
-        // Get all result images
-        const allImages = Array.from(document.querySelectorAll('#resultsGallery .image-item img'));
-        const currentIndex = allImages.findIndex(img => img.src === currentSrc);
+        // Get all visible image items to get their data
+        const allImageItems = Array.from(document.querySelectorAll('#resultsGallery .image-item'));
+        const allImagesData = allImageItems.map(item => ({
+            src: item.querySelector('img').src,
+            alt: item.querySelector('img').alt,
+            id: item.dataset.id
+        }));
+        
+        const currentIndex = allImagesData.findIndex(imgData => imgData.src === currentSrc);
         
         if (currentIndex === -1) return;
         
         let newIndex;
         if (direction === 'prev') {
-            newIndex = currentIndex > 0 ? currentIndex - 1 : allImages.length - 1;
+            newIndex = currentIndex > 0 ? currentIndex - 1 : allImagesData.length - 1;
         } else {
-            newIndex = currentIndex < allImages.length - 1 ? currentIndex + 1 : 0;
+            newIndex = currentIndex < allImagesData.length - 1 ? currentIndex + 1 : 0;
         }
         
-        const newImage = allImages[newIndex];
-        if (newImage) {
-            this.showImageModal(newImage.src, newImage.alt);
+        const newImageData = allImagesData[newIndex];
+        if (newImageData) {
+            this.showImageModal(newImageData.src, newImageData.alt, newImageData.id);
         }
     }
 
@@ -686,13 +709,13 @@ class ComfyUIApp {
         processBtn.onclick = () => this.startProcessing();
     }
 
-    async clearAllResults() {
-        if (!confirm('Are you sure you want to clear all results? This will delete all processed images.')) {
+    async resetApplication() {
+        if (!confirm('Are you sure you want to reset the application? This will stop any current processing, clear all queues, and delete all images.')) {
             return;
         }
 
         try {
-            this.setLoading('clearAllBtn', true);
+            this.setLoading('resetBtn', true);
             
             const response = await fetch('/clear_results', {
                 method: 'POST'
@@ -701,16 +724,19 @@ class ComfyUIApp {
             const result = await response.json();
             
             if (result.status === 'success') {
-                this.showNotification('Results Cleared', result.message, 'success');
+                this.showNotification('Application Reset', result.message, 'success');
                 this.refreshStatus();
+                // Also reset progress bar and status text
+                this.hideProgressBar();
+                this.updateStatus('Ready');
             } else {
                 this.showNotification('Error', result.message, 'danger');
             }
         } catch (error) {
-            console.error('Clear results error:', error);
-            this.showNotification('Error', 'Failed to clear results', 'danger');
+            console.error('Reset error:', error);
+            this.showNotification('Error', 'Failed to reset application', 'danger');
         } finally {
-            this.setLoading('clearAllBtn', false);
+            this.setLoading('resetBtn', false);
         }
     }
 
@@ -1284,7 +1310,7 @@ class ComfyUIApp {
                     'uploadBtn': 'fas fa-plus',
                     'processBtn': 'fas fa-play',
                     'clearQueueBtn': 'fas fa-trash',
-                    'clearAllBtn': 'fas fa-trash-alt',
+                    'resetBtn': 'fas fa-undo',
                     'reprocessBtn': 'fas fa-redo',
                     'clearReprocessBtn': 'fas fa-times'
                 };
@@ -1393,12 +1419,13 @@ class ComfyUIApp {
         });
     }
 
-    showImageModal(imageSrc, imageName) {
+    showImageModal(imageSrc, imageName, imageId) {
         // Update modal content
         const modalImage = document.getElementById('modalImage');
         const modalTitle = document.getElementById('imageModalLabel');
         const imageInfo = document.getElementById('imageInfo');
         const downloadLink = document.getElementById('downloadLink');
+        const modalDeleteBtn = document.getElementById('modalDeleteBtn');
         
         modalImage.src = imageSrc;
         modalTitle.textContent = imageName || 'Image Preview';
@@ -1406,6 +1433,14 @@ class ComfyUIApp {
         // Set download link
         downloadLink.href = imageSrc;
         downloadLink.download = imageName || 'image.png';
+
+        // Store imageId on the delete button
+        if (imageId) {
+            modalDeleteBtn.dataset.id = imageId;
+            modalDeleteBtn.style.display = 'inline-block';
+        } else {
+            modalDeleteBtn.style.display = 'none';
+        }
         
         // Load image to get dimensions
         const img = new Image();
