@@ -410,12 +410,7 @@ class ComfyUIApp {
         document.getElementById('modalDeleteBtn').addEventListener('click', (e) => {
             const imageId = e.currentTarget.dataset.id;
             if (imageId) {
-                const modalElement = document.getElementById('imageModal');
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                if (modal) {
-                    modal.hide();
-                }
-                this.deleteImage(imageId);
+                this.deleteImageAndShowNext(imageId);
             }
         });
 
@@ -737,6 +732,53 @@ class ComfyUIApp {
             this.showNotification('Error', 'Failed to reset application', 'danger');
         } finally {
             this.setLoading('resetBtn', false);
+        }
+    }
+
+    async deleteImageAndShowNext(imageId) {
+        // Find current image's index BEFORE deletion
+        const currentSrc = document.getElementById('modalImage').src;
+        const url = new URL(currentSrc);
+        const currentPathname = url.pathname;
+        let currentIndex = this.filteredResults.findIndex(result => `/outputs/${result.name}` === currentPathname);
+
+        if (!confirm('Are you sure you want to delete this image?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/delete_image/${imageId}`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                this.showNotification('Image Deleted', result.message, 'success');
+                
+                // Await a full status refresh to update this.filteredResults
+                await this.refreshStatus(); 
+                
+                if (this.filteredResults.length === 0) {
+                    // No more images, close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('imageModal'));
+                    if (modal) modal.hide();
+                } else {
+                    // Show image at same index, or previous if it was the last one
+                    const newIndex = Math.min(currentIndex, this.filteredResults.length - 1);
+                    const newImageData = this.filteredResults[newIndex];
+                    
+                    if (newImageData) {
+                        this.showImageModal(`/outputs/${newImageData.name}`, newImageData.name, newImageData.image_id);
+                    } else {
+                        // Fallback: close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('imageModal'));
+                        if (modal) modal.hide();
+                    }
+                }
+            } else {
+                this.showNotification('Delete Error', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            this.showNotification('Delete Error', 'Failed to delete image', 'danger');
         }
     }
 
