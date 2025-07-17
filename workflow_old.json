@@ -1,8 +1,17 @@
 {
   "1": {
     "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "8": {
+    "inputs": {
       "mask": [
-        "7",
+        "19",
         0
       ]
     },
@@ -11,48 +20,20 @@
       "title": "🔧 Mask Preview"
     }
   },
-  "2": {
+  "9": {
     "inputs": {
-      "grow_mask_by": 10,
-      "pixels": [
-        "46",
-        0
-      ],
-      "vae": [
-        "36",
-        2
-      ],
-      "mask": [
-        "7",
-        0
-      ]
+      "ckpt_name": "juggernaut-ragnarok.safetensors"
     },
-    "class_type": "VAEEncodeForInpaint",
+    "class_type": "CheckpointLoaderSimple",
     "_meta": {
-      "title": "VAE Encode (for Inpainting)"
+      "title": "Load Checkpoint"
     }
   },
-  "3": {
+  "10": {
     "inputs": {
-      "samples": [
-        "38",
-        0
-      ],
-      "vae": [
-        "36",
-        2
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "VAE Decode"
-    }
-  },
-  "4": {
-    "inputs": {
-      "text": "blurry, low quality, worst quality",
+      "text": "",
       "clip": [
-        "36",
+        "9",
         1
       ]
     },
@@ -61,7 +42,102 @@
       "title": "CLIP Text Encode (Prompt)"
     }
   },
-  "5": {
+  "11": {
+    "inputs": {
+      "grow_mask_by": 10,
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "9",
+        2
+      ],
+      "mask": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "VAE Encode (for Inpainting)"
+    }
+  },
+  "12": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 619368807466847,
+      "steps": 81,
+      "cfg": 4,
+      "sampler_name": "dpmpp_2m_sde_gpu",
+      "scheduler": "karras",
+      "start_at_step": 0,
+      "end_at_step": 10000,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "43",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "15",
+        0
+      ],
+      "latent_image": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "13": {
+    "inputs": {
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "9",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "14": {
+    "inputs": {
+      "images": [
+        "69",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "15": {
+    "inputs": {
+      "text": "blurry, low quality, worst quality",
+      "clip": [
+        "9",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "16": {
     "inputs": {
       "model_name": "sam2_1_hiera_large.pt"
     },
@@ -70,7 +146,7 @@
       "title": "SAM2ModelLoader (segment anything2)"
     }
   },
-  "6": {
+  "18": {
     "inputs": {
       "model_name": "GroundingDINO_SwinT_OGC (694MB)"
     },
@@ -79,12 +155,12 @@
       "title": "GroundingDinoModelLoader (segment anything2)"
     }
   },
-  "7": {
+  "19": {
     "inputs": {
       "amount": 16,
       "device": "auto",
       "mask": [
-        "11",
+        "39",
         0
       ]
     },
@@ -93,20 +169,33 @@
       "title": "🔧 Mask Blur"
     }
   },
-  "8": {
+  "20": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "69",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "30": {
     "inputs": {
       "prompt": "vest",
       "threshold": 0.30000000000000004,
       "sam_model": [
-        "5",
+        "16",
         0
       ],
       "grounding_dino_model": [
-        "6",
+        "18",
         0
       ],
       "image": [
-        "46",
+        "1",
         0
       ]
     },
@@ -115,20 +204,20 @@
       "title": "GroundingDinoSAM2Segment (segment anything2)"
     }
   },
-  "9": {
+  "31": {
     "inputs": {
       "prompt": "shirt",
       "threshold": 0.30000000000000004,
       "sam_model": [
-        "5",
+        "16",
         0
       ],
       "grounding_dino_model": [
-        "6",
+        "18",
         0
       ],
       "image": [
-        "46",
+        "1",
         0
       ]
     },
@@ -137,17 +226,36 @@
       "title": "GroundingDinoSAM2Segment (segment anything2)"
     }
   },
-  "10": {
+  "33": {
     "inputs": {
       "x": 0,
       "y": 0,
       "operation": "add",
       "destination": [
-        "24",
+        "30",
         1
       ],
       "source": [
-        "29",
+        "31",
+        1
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "34": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "65",
+        1
+      ],
+      "source": [
+        "33",
         0
       ]
     },
@@ -156,17 +264,17 @@
       "title": "MaskComposite"
     }
   },
-  "11": {
+  "39": {
     "inputs": {
       "x": 0,
       "y": 0,
       "operation": "subtract",
       "destination": [
-        "21",
+        "61",
         0
       ],
       "source": [
-        "22",
+        "62",
         0
       ]
     },
@@ -175,10 +283,10 @@
       "title": "MaskComposite"
     }
   },
-  "12": {
+  "41": {
     "inputs": {
       "mask": [
-        "16",
+        "54",
         1
       ]
     },
@@ -187,7 +295,99 @@
       "title": "🔧 Mask Preview"
     }
   },
-  "13": {
+  "42": {
+    "inputs": {
+      "head": "fooocus_inpaint_head.pth",
+      "patch": "inpaint_v26.fooocus.patch"
+    },
+    "class_type": "INPAINT_LoadFooocusInpaint",
+    "_meta": {
+      "title": "Load Fooocus Inpaint"
+    }
+  },
+  "43": {
+    "inputs": {
+      "model": [
+        "9",
+        0
+      ],
+      "patch": [
+        "42",
+        0
+      ],
+      "latent": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "INPAINT_ApplyFooocusInpaint",
+    "_meta": {
+      "title": "Apply Fooocus Inpaint"
+    }
+  },
+  "46": {
+    "inputs": {
+      "guide_size": 1024,
+      "guide_size_for": false,
+      "max_size": 2048,
+      "seed": 717407522802819,
+      "steps": 80,
+      "cfg": 4,
+      "sampler_name": "dpmpp_2m_sde_gpu",
+      "scheduler": "karras",
+      "denoise": 0.4000000000000001,
+      "feather": 8,
+      "noise_mask": true,
+      "force_inpaint": true,
+      "wildcard": "",
+      "cycle": 2,
+      "inpaint_model": true,
+      "noise_mask_feather": 8,
+      "tiled_encode": false,
+      "tiled_decode": false,
+      "image": [
+        "69",
+        0
+      ],
+      "segs": [
+        "51",
+        0
+      ],
+      "model": [
+        "9",
+        0
+      ],
+      "clip": [
+        "9",
+        1
+      ],
+      "vae": [
+        "9",
+        2
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "15",
+        0
+      ],
+      "detailer_hook": [
+        "49",
+        0
+      ],
+      "scheduler_func_opt": [
+        "50",
+        0
+      ]
+    },
+    "class_type": "DetailerForEach",
+    "_meta": {
+      "title": "Detailer (SEGS)"
+    }
+  },
+  "49": {
     "inputs": {
       "schedule_for_cycle": "simple",
       "target_denoise": 0.5000000000000001
@@ -197,7 +397,7 @@
       "title": "DenoiseSchedulerDetailerHookProvider"
     }
   },
-  "14": {
+  "50": {
     "inputs": {
       "coeff": 1.2000000000000002,
       "denoise": 1
@@ -207,7 +407,7 @@
       "title": "GITSScheduler Func Provider"
     }
   },
-  "15": {
+  "51": {
     "inputs": {
       "combined": false,
       "crop_factor": 1.4000000000000001,
@@ -215,7 +415,7 @@
       "drop_size": 128,
       "contour_fill": false,
       "mask": [
-        "7",
+        "19",
         0
       ]
     },
@@ -224,7 +424,20 @@
       "title": "MASK to SEGS"
     }
   },
-  "16": {
+  "52": {
+    "inputs": {
+      "filename_prefix": "refined-ComfyUI",
+      "images": [
+        "46",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "54": {
     "inputs": {
       "Hair": false,
       "Glasses": false,
@@ -243,11 +456,11 @@
       "invert_output": false,
       "background": "Alpha",
       "images": [
-        "46",
+        "1",
         0
       ],
       "background_color": [
-        "17",
+        "56",
         0
       ]
     },
@@ -256,7 +469,7 @@
       "title": "Body Part Segmentation (RMBG)"
     }
   },
-  "17": {
+  "56": {
     "inputs": {
       "preset": "black",
       "color": ""
@@ -266,7 +479,7 @@
       "title": "Color Input (RMBG) 🎨"
     }
   },
-  "18": {
+  "57": {
     "inputs": {
       "coat": true,
       "jacket": true,
@@ -292,15 +505,15 @@
       "invert_output": false,
       "background": "Alpha",
       "images": [
-        "46",
+        "1",
         0
       ],
       "accessories_options": [
-        "19",
+        "59",
         0
       ],
       "background_color": [
-        "17",
+        "56",
         0
       ]
     },
@@ -309,7 +522,7 @@
       "title": "Fashion Segmentation (RMBG)"
     }
   },
-  "19": {
+  "59": {
     "inputs": {
       "hat": false,
       "glasses": false,
@@ -345,17 +558,17 @@
       "title": "Fashion Accessories Segmentation (RMBG)"
     }
   },
-  "20": {
+  "60": {
     "inputs": {
       "x": 0,
       "y": 0,
       "operation": "add",
       "destination": [
-        "10",
+        "34",
         0
       ],
       "source": [
-        "18",
+        "57",
         1
       ]
     },
@@ -364,12 +577,12 @@
       "title": "MaskComposite"
     }
   },
-  "21": {
+  "61": {
     "inputs": {
-      "expand": 7,
+      "expand": 8,
       "tapered_corners": false,
       "mask": [
-        "20",
+        "60",
         0
       ]
     },
@@ -378,12 +591,12 @@
       "title": "GrowMask"
     }
   },
-  "22": {
+  "62": {
     "inputs": {
       "expand": 6,
       "tapered_corners": false,
       "mask": [
-        "16",
+        "54",
         1
       ]
     },
@@ -392,10 +605,10 @@
       "title": "GrowMask"
     }
   },
-  "23": {
+  "63": {
     "inputs": {
       "mask": [
-        "18",
+        "57",
         1
       ]
     },
@@ -404,7 +617,7 @@
       "title": "Mask Preview (RMBG) 🎭"
     }
   },
-  "24": {
+  "65": {
     "inputs": {
       "Hair": false,
       "Glasses": false,
@@ -423,11 +636,11 @@
       "invert_output": false,
       "background": "Alpha",
       "images": [
-        "46",
+        "1",
         0
       ],
       "background_color": [
-        "17",
+        "56",
         0
       ]
     },
@@ -436,10 +649,10 @@
       "title": "Body Part Segmentation (RMBG)"
     }
   },
-  "25": {
+  "66": {
     "inputs": {
       "mask": [
-        "24",
+        "65",
         1
       ]
     },
@@ -448,10 +661,10 @@
       "title": "Mask Preview (RMBG) 🎭"
     }
   },
-  "26": {
+  "67": {
     "inputs": {
       "mask": [
-        "9",
+        "31",
         1
       ]
     },
@@ -460,10 +673,10 @@
       "title": "Mask Preview (RMBG) 🎭"
     }
   },
-  "27": {
+  "68": {
     "inputs": {
       "mask": [
-        "8",
+        "30",
         1
       ]
     },
@@ -472,368 +685,27 @@
       "title": "Mask Preview (RMBG) 🎭"
     }
   },
-  "28": {
+  "69": {
     "inputs": {
       "x": 0,
       "y": 0,
       "resize_source": false,
       "destination": [
-        "46",
+        "1",
         0
       ],
       "source": [
-        "3",
+        "13",
         0
       ],
       "mask": [
-        "7",
+        "19",
         0
       ]
     },
     "class_type": "ImageCompositeMasked",
     "_meta": {
       "title": "ImageCompositeMasked"
-    }
-  },
-  "29": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "operation": "add",
-      "destination": [
-        "8",
-        1
-      ],
-      "source": [
-        "9",
-        1
-      ]
-    },
-    "class_type": "MaskComposite",
-    "_meta": {
-      "title": "MaskComposite"
-    }
-  },
-  "30": {
-    "inputs": {
-      "model": [
-        "36",
-        0
-      ],
-      "patch": [
-        "31",
-        0
-      ],
-      "latent": [
-        "2",
-        0
-      ]
-    },
-    "class_type": "INPAINT_ApplyFooocusInpaint",
-    "_meta": {
-      "title": "Apply Fooocus Inpaint"
-    }
-  },
-  "31": {
-    "inputs": {
-      "head": "fooocus_inpaint_head.pth",
-      "patch": "inpaint_v26.fooocus.patch"
-    },
-    "class_type": "INPAINT_LoadFooocusInpaint",
-    "_meta": {
-      "title": "Load Fooocus Inpaint"
-    }
-  },
-  "32": {
-    "inputs": {
-      "detect_hand": "enable",
-      "detect_body": "enable",
-      "detect_face": "enable",
-      "resolution": 1024,
-      "scale_stick_for_xinsr_cn": "enable",
-      "image": [
-        "46",
-        0
-      ]
-    },
-    "class_type": "OpenposePreprocessor",
-    "_meta": {
-      "title": "OpenPose Pose"
-    }
-  },
-  "33": {
-    "inputs": {
-      "text": "photo of girl, rainbow shirt",
-      "clip": [
-        "36",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Prompt)"
-    }
-  },
-  "34": {
-    "inputs": {
-      "control_net_name": "controlnet-openpose-sdxl-1.0/diffusion_pytorch_model.bin"
-    },
-    "class_type": "ControlNetLoader",
-    "_meta": {
-      "title": "Load ControlNet Model"
-    }
-  },
-  "35": {
-    "inputs": {
-      "control_net_name": "controlnet-depth-sdxl-1.0/diffusion_pytorch_model.fp16.bin"
-    },
-    "class_type": "ControlNetLoader",
-    "_meta": {
-      "title": "Load ControlNet Model"
-    }
-  },
-  "36": {
-    "inputs": {
-      "ckpt_name": "juggernaut-ragnarok.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
-    "_meta": {
-      "title": "Load Checkpoint"
-    }
-  },
-  "37": {
-    "inputs": {
-      "resolution": 1024,
-      "image": [
-        "46",
-        0
-      ]
-    },
-    "class_type": "Zoe-DepthMapPreprocessor",
-    "_meta": {
-      "title": "Zoe Depth Map"
-    }
-  },
-  "38": {
-    "inputs": {
-      "add_noise": "enable",
-      "noise_seed": 681328159691751,
-      "steps": 60,
-      "cfg": 3,
-      "sampler_name": "dpmpp_2m_sde_gpu",
-      "scheduler": "karras",
-      "start_at_step": 0,
-      "end_at_step": 10000,
-      "return_with_leftover_noise": "disable",
-      "model": [
-        "30",
-        0
-      ],
-      "positive": [
-        "40",
-        0
-      ],
-      "negative": [
-        "40",
-        1
-      ],
-      "latent_image": [
-        "2",
-        0
-      ]
-    },
-    "class_type": "KSamplerAdvanced",
-    "_meta": {
-      "title": "KSampler (Advanced)"
-    }
-  },
-  "39": {
-    "inputs": {
-      "strength": 0.7000000000000002,
-      "start_percent": 0,
-      "end_percent": 1,
-      "positive": [
-        "33",
-        0
-      ],
-      "negative": [
-        "4",
-        0
-      ],
-      "control_net": [
-        "34",
-        0
-      ],
-      "image": [
-        "32",
-        0
-      ],
-      "vae": [
-        "36",
-        2
-      ]
-    },
-    "class_type": "ControlNetApplyAdvanced",
-    "_meta": {
-      "title": "Apply ControlNet"
-    }
-  },
-  "40": {
-    "inputs": {
-      "strength": 0.6000000000000001,
-      "start_percent": 0,
-      "end_percent": 1,
-      "positive": [
-        "39",
-        0
-      ],
-      "negative": [
-        "39",
-        1
-      ],
-      "control_net": [
-        "35",
-        0
-      ],
-      "image": [
-        "37",
-        0
-      ],
-      "vae": [
-        "36",
-        2
-      ]
-    },
-    "class_type": "ControlNetApplyAdvanced",
-    "_meta": {
-      "title": "Apply ControlNet"
-    }
-  },
-  "41": {
-    "inputs": {
-      "filename_prefix": "ComfyUI",
-      "images": [
-        "28",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
-    }
-  },
-  "43": {
-    "inputs": {
-      "filename_prefix": "refined-ComfyUI",
-      "images": [
-        "44",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
-    }
-  },
-  "44": {
-    "inputs": {
-      "guide_size": 1024,
-      "guide_size_for": false,
-      "max_size": 2048,
-      "seed": 863349065608699,
-      "steps": 60,
-      "cfg": 3,
-      "sampler_name": "dpmpp_2m_sde_gpu",
-      "scheduler": "karras",
-      "denoise": 0.4000000000000001,
-      "feather": 8,
-      "noise_mask": true,
-      "force_inpaint": true,
-      "wildcard": "",
-      "cycle": 3,
-      "inpaint_model": true,
-      "noise_mask_feather": 8,
-      "tiled_encode": false,
-      "tiled_decode": false,
-      "image": [
-        "28",
-        0
-      ],
-      "segs": [
-        "15",
-        0
-      ],
-      "model": [
-        "36",
-        0
-      ],
-      "clip": [
-        "36",
-        1
-      ],
-      "vae": [
-        "36",
-        2
-      ],
-      "positive": [
-        "33",
-        0
-      ],
-      "negative": [
-        "4",
-        0
-      ],
-      "detailer_hook": [
-        "13",
-        0
-      ],
-      "scheduler_func_opt": [
-        "14",
-        0
-      ]
-    },
-    "class_type": "DetailerForEach",
-    "_meta": {
-      "title": "Detailer (SEGS)"
-    }
-  },
-  "45": {
-    "inputs": {
-      "rgthree_comparer": {
-        "images": [
-          {
-            "name": "A",
-            "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_gsahl_00043_.png&type=temp&subfolder=&rand=0.11767298268551063"
-          },
-          {
-            "name": "B",
-            "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_gsahl_00044_.png&type=temp&subfolder=&rand=0.32132150959810934"
-          }
-        ]
-      },
-      "image_a": [
-        "44",
-        0
-      ],
-      "image_b": [
-        "46",
-        0
-      ]
-    },
-    "class_type": "Image Comparer (rgthree)",
-    "_meta": {
-      "title": "Image Comparer (rgthree)"
-    }
-  },
-  "46": {
-    "inputs": {
-      "image": "example.png"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Load Image"
     }
   }
 }
