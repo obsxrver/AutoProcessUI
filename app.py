@@ -69,8 +69,8 @@ class FlaskComfyUIApp:
         with open("workflow.json", 'r') as f:
             workflow = json.load(f)
         
-        self.default_positive = workflow["33"]["inputs"]["text"]
-        self.default_negative = workflow["4"]["inputs"]["text"]
+        self.default_positive = workflow["10"]["inputs"]["text"]
+        self.default_negative = workflow["15"]["inputs"]["text"]
         
         # Store processing results
         self.results_cache = {}
@@ -829,30 +829,30 @@ class FlaskComfyUIApp:
                 }
             
             # Update prompts in the workflow
-            if "33" in workflow_copy:
-                workflow_copy["33"]["inputs"]["text"] = positive_prompt
-            if "4" in workflow_copy:
-                workflow_copy["4"]["inputs"]["text"] = negative_prompt
+            if "10" in workflow_copy:
+                workflow_copy["10"]["inputs"]["text"] = positive_prompt
+            if "15" in workflow_copy:
+                workflow_copy["15"]["inputs"]["text"] = negative_prompt
             
             # Update model selection (node 9 - CheckpointLoaderSimple)
             if "9" in workflow_copy:
                 workflow_copy["9"]["inputs"]["ckpt_name"] = custom_settings['model']
             
-            # Update main sampler settings (node 38 - KSamplerAdvanced)
-            if "38" in workflow_copy:
-                workflow_copy["38"]["inputs"]["steps"] = custom_settings['main_steps']
-                workflow_copy["38"]["inputs"]["cfg"] = custom_settings['main_cfg']
-                workflow_copy["38"]["inputs"]["sampler_name"] = custom_settings['main_sampler']
-                workflow_copy["38"]["inputs"]["scheduler"] = custom_settings['main_scheduler']
+            # Update main sampler settings (node 12 - KSamplerAdvanced)
+            if "12" in workflow_copy:
+                workflow_copy["12"]["inputs"]["steps"] = custom_settings['main_steps']
+                workflow_copy["12"]["inputs"]["cfg"] = custom_settings['main_cfg']
+                workflow_copy["12"]["inputs"]["sampler_name"] = custom_settings['main_sampler']
+                workflow_copy["12"]["inputs"]["scheduler"] = custom_settings['main_scheduler']
             
-            # Update refiner settings (node 44 - DetailerForEach)
-            if "44" in workflow_copy:
-                workflow_copy["44"]["inputs"]["steps"] = custom_settings['refiner_steps']
-                workflow_copy["44"]["inputs"]["cfg"] = custom_settings['refiner_cfg']
-                workflow_copy["44"]["inputs"]["sampler_name"] = custom_settings['refiner_sampler']
-                workflow_copy["44"]["inputs"]["scheduler"] = custom_settings['refiner_scheduler']
-                workflow_copy["44"]["inputs"]["denoise"] = custom_settings['refiner_denoise']
-                workflow_copy["44"]["inputs"]["cycle"] = custom_settings['refiner_cycles']
+            # Update refiner settings (node 46 - DetailerForEach)
+            if "46" in workflow_copy:
+                workflow_copy["46"]["inputs"]["steps"] = custom_settings['refiner_steps']
+                workflow_copy["46"]["inputs"]["cfg"] = custom_settings['refiner_cfg']
+                workflow_copy["46"]["inputs"]["sampler_name"] = custom_settings['refiner_sampler']
+                workflow_copy["46"]["inputs"]["scheduler"] = custom_settings['refiner_scheduler']
+                workflow_copy["46"]["inputs"]["denoise"] = custom_settings['refiner_denoise']
+                workflow_copy["46"]["inputs"]["cycle"] = custom_settings['refiner_cycles']
             
             # Force fresh execution by randomizing all seeds
             # This ensures ComfyUI doesn't return cached results
@@ -1012,9 +1012,9 @@ class FlaskComfyUIApp:
                                     return new_path
                                 counter += 1
                         
-                        # First output (node 41 - pass1)
-                        if "41" in outputs and 'images' in outputs["41"]:
-                            for img_info in outputs["41"]['images']:
+                        # First output (node 20)
+                        if "20" in outputs and 'images' in outputs["20"]:
+                            for img_info in outputs["20"]['images']:
                                 if save_unrefined:  # Only save if user wants unrefined images
                                     filename = img_info['filename']
                                     subfolder = img_info.get('subfolder', '')
@@ -1029,14 +1029,14 @@ class FlaskComfyUIApp:
                                         if resp.status == 200:
                                             content = await resp.read()
                                             
-                                            output_path = get_unique_filename(self.output_dir / f"{base_name}_pass1.png")
+                                            output_path = get_unique_filename(self.output_dir / f"{base_name}_.png")
                                             with open(output_path, 'wb') as f:
                                                 f.write(content)
                                             output_files.append(str(output_path))
                         
-                        # Second output (node 43 - pass2)
-                        if "43" in outputs and 'images' in outputs["43"]:
-                            for img_info in outputs["43"]['images']:
+                        # Second output (node 52 - refined)
+                        if "52" in outputs and 'images' in outputs["52"]:
+                            for img_info in outputs["52"]['images']:
                                 filename = img_info['filename']
                                 subfolder = img_info.get('subfolder', '')
                                 
@@ -1050,7 +1050,7 @@ class FlaskComfyUIApp:
                                     if resp.status == 200:
                                         content = await resp.read()
                                         
-                                        output_path = get_unique_filename(self.output_dir / f"{base_name}_pass2.png")
+                                        output_path = get_unique_filename(self.output_dir / f"{base_name}_refined.png")
                                         with open(output_path, 'wb') as f:
                                             f.write(content)
                                         output_files.append(str(output_path))
@@ -1200,18 +1200,6 @@ class FlaskComfyUIApp:
                         zipf.write(output_path, arcname)
         
         return str(archive_path)
-
-    def interrupt_all_servers(self):
-        if not self.orchestrator:
-            return
-        
-        for port in self.orchestrator.base_ports:
-            server_url = f"http://localhost:{port}"
-            try:
-                requests.post(f"{server_url}/interrupt")
-                print(f"Interrupted processing on {server_url}")
-            except Exception as e:
-                print(f"Failed to interrupt {server_url}: {e}")
 
 # Initialize the app
 batch_app = FlaskComfyUIApp()
@@ -1500,7 +1488,6 @@ def delete_image(image_id):
 def stop_processing():
     """Stop the current batch processing"""
     batch_app.stop_processing = True
-    batch_app.interrupt_all_servers()
     return jsonify({
         "status": "success", 
         "message": "Stopping batch processing..."

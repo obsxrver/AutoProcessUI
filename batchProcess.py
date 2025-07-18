@@ -213,9 +213,9 @@ class ComfyUIMultiGPU:
         # Create a deep copy of the workflow
         workflow_copy = json.loads(json.dumps(self.workflow))
         
-        # Find the LoadImage node (id: "46") and update its image
-        if "46" in workflow_copy:
-            workflow_copy["46"]["inputs"]["image"] = image_filename
+        # Find the LoadImage node (id: "1") and update its image
+        if "1" in workflow_copy:
+            workflow_copy["1"]["inputs"]["image"] = image_filename
         
         return workflow_copy
     
@@ -258,8 +258,8 @@ class ComfyUIMultiGPU:
                 outputs = completion_result.get('outputs', {})
                 output_images = []
                 
-                # Look for SaveImage nodes (ids: "41" and "43")
-                for node_id in ["41", "43"]:
+                # Look for SaveImage nodes (ids: "20" and "52")
+                for node_id in ["20", "52"]:
                     if node_id in outputs and 'images' in outputs[node_id]:
                         output_images.extend(outputs[node_id]['images'])
                 

@@ -30,11 +30,9 @@ NODES=(
     "https://github.com/neverbiasu/ComfyUI-SAM2.git"
     "https://github.com/Acly/comfyui-inpaint-nodes.git"
     "https://github.com/cubiq/ComfyUI_essentials.git"
-    "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git"
-    "https://github.com/1038lab/ComfyUI-RMBG.git"
-    "https://github.com/ltdrdata/ComfyUI-Manager.git"
-    "https://github.com/Fannovel16/comfyui_controlnet_aux.git"
-    "https://github.com/rgthree/rgthree-comfyui.git"
+    "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
+    "https://github.com/1038lab/ComfyUI-RMBG"
+    "https://github.com/ltdrdata/ComfyUI-Manager"
 )
 
 WORKFLOWS=(
@@ -129,17 +127,10 @@ function provisioning_start() {
     cd inpaint
     if [ ! -f "fooocus_inpaint_head.pth" ]; then
         wget -c https://huggingface.co/lllyasviel/fooocus_inpaint/resolve/main/fooocus_inpaint_head.pth
+        wget -c https://huggingface.co/lllyasviel/fooocus_inpaint/resolve/main/inpaint_v25.fooocus.patch
         wget -c https://huggingface.co/lllyasviel/fooocus_inpaint/resolve/main/inpaint_v26.fooocus.patch
     fi
-    #controlnet models
-    cd ${COMFYUI_DIR}/models/controlnet
-    if [ ! -d "controlnet-depth-sdxl-1.0" ]; then
-        git clone https://huggingface.co/diffusers/controlnet-depth-sdxl-1.0
-    fi
-    if [ ! -d "controlnet-openpose-sdxl-1.0" ]; then
-        git clone https://huggingface.co/thibaud/controlnet-openpose-sdxl-1.0
-    fi
-
+    
     # Main checkpoint
     cd ${COMFYUI_DIR}/models/checkpoints
     if [ ! -f "juggernaut-ragnarok.safetensors" ]; then
