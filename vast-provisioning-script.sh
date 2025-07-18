@@ -34,7 +34,7 @@ NODES=(
     "https://github.com/1038lab/ComfyUI-RMBG.git"
     "https://github.com/ltdrdata/ComfyUI-Manager.git"
     "https://github.com/Fannovel16/comfyui_controlnet_aux.git"
-    "https://github.com/rgthree/rgthree-comfy.git"
+    "https://github.com/rgthree/rgthree-comfyui.git"
 )
 
 WORKFLOWS=(
