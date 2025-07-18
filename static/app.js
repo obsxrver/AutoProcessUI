@@ -1004,9 +1004,9 @@ class ComfyUIApp {
         if (this.showUnrefined) {
             this.filteredResults = this.allResults;
         } else {
-            // Filter out unrefined images (those with '_pass1' in the name)
+            // Filter out unrefined images (those without "_refined" in the name)
             this.filteredResults = this.allResults.filter(result => 
-                !result.name.includes('_pass1')
+                result.name.includes('_refined') || result.name.includes('refined-')
             );
         }
     }
