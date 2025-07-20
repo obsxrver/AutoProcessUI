@@ -157,7 +157,6 @@ class FlaskComfyUIApp:
             
             # Wait for servers to initialize
             print("Waiting for ComfyUI servers to initialize...")
-            time.sleep(10)
             
             # Verify all servers are running
             all_running = True
