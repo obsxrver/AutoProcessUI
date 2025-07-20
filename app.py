@@ -23,6 +23,7 @@ import struct
 from PIL import Image
 import io
 import requests
+from instagram_utils import fetch_profile_images, filter_single_human_images
 
 # Import the ComfyUI processing logic
 from batchProcess import ComfyUIMultiGPU
@@ -365,6 +366,65 @@ class FlaskComfyUIApp:
         return {
             "status": "success" if successful_uploads > 0 else "error",
             "message": status_msg,
+            "uploaded_count": successful_uploads,
+            "queue_count": len(self.upload_queue)
+        }
+
+    def add_paths_to_upload_queue(self, paths):
+        """Add existing image file paths to the upload queue"""
+        if not paths:
+            return {"status": "error", "message": "No paths provided"}
+
+        self.temp_input_dir.mkdir(exist_ok=True)
+
+        successful_uploads = 0
+        failed = []
+
+        for p in paths:
+            try:
+                if not os.path.exists(p):
+                    failed.append(os.path.basename(p))
+                    continue
+
+                original_name = secure_filename(os.path.basename(p))
+
+                for existing_id, info in list(self.upload_queue.items()):
+                    if info['original_name'] == original_name:
+                        old_path = info['path']
+                        if os.path.exists(old_path):
+                            try:
+                                os.remove(old_path)
+                            except Exception:
+                                pass
+                        del self.upload_queue[existing_id]
+
+                upload_id = str(uuid.uuid4())
+                dest_filename = f"{upload_id}_{original_name}"
+                dest_path = self.temp_input_dir / dest_filename
+                shutil.copy(p, dest_path)
+
+                if dest_path.exists() and dest_path.stat().st_size > 0:
+                    self.upload_queue[upload_id] = {
+                        'path': str(dest_path),
+                        'original_name': original_name,
+                        'upload_time': time.time()
+                    }
+                    successful_uploads += 1
+                else:
+                    failed.append(original_name)
+            except Exception:
+                failed.append(os.path.basename(p))
+
+        if successful_uploads == len(paths):
+            msg = f"✓ Successfully queued {successful_uploads} image(s)"
+        elif successful_uploads > 0:
+            msg = f"⚠️ Queued {successful_uploads}/{len(paths)} images. Failed: {', '.join(failed)}"
+        else:
+            msg = "❌ Failed to queue any images"
+
+        return {
+            "status": "success" if successful_uploads > 0 else "error",
+            "message": msg,
             "uploaded_count": successful_uploads,
             "queue_count": len(self.upload_queue)
         }
@@ -1280,6 +1340,30 @@ def upload_files():
     result = batch_app.add_to_upload_queue(files)
     
     return jsonify(result)
+
+
+@app.route('/instagram_profile', methods=['POST'])
+def instagram_profile():
+    """Fetch images from an Instagram profile and queue them"""
+    data = request.get_json()
+    profile = data.get('profile')
+    login_user = data.get('username')
+    password = data.get('password')
+    remember = bool(data.get('remember'))
+    max_images = int(data.get('max_images', 20))
+
+    if not profile or not login_user:
+        return jsonify({"status": "error", "message": "Profile and username required"})
+
+    try:
+        downloaded = fetch_profile_images(profile, login_user, password, remember, max_images)
+        filtered = filter_single_human_images(downloaded)
+        result = batch_app.add_paths_to_upload_queue(filtered)
+        result['fetched'] = len(downloaded)
+        result['kept'] = len(filtered)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
 
 @app.route('/clear_queue', methods=['POST'])
 def clear_queue():
