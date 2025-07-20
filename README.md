@@ -13,6 +13,7 @@ A multi-GPU batch image processing application for ComfyUI with both Gradio and 
 - **Two Interface Options**: Choose between Gradio or Flask web interface
 - **GPU-based Preview Management**: Throttles preview requests per GPU server to prevent overload
 - **Intelligent Queueing**: Manages preview requests to ensure final images load properly
+- **Instagram Import**: Login to Instagram, download images from a profile, filter to a single person and queue them automatically
 
 ## Installation
 
@@ -45,6 +46,7 @@ Access the interface at `http://localhost:5000`
 - Interactive image galleries
 - Progress bars and status indicators
 - Toast notifications
+- Instagram profile importer with optional session caching
 
 ### Gradio Interface
 
@@ -139,6 +141,7 @@ AutoProcessUI/
 
 - `GET /` - Main interface
 - `POST /upload` - Upload images
+- `POST /instagram_profile` - Import images from an Instagram profile
 - `POST /process` - Start processing
 - `POST /clear_queue` - Clear upload queue
 - `POST /clear_results` - Clear all results

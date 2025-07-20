@@ -299,6 +299,14 @@ class ComfyUIApp {
             this.clearUploadQueue();
         });
 
+        // Instagram import button
+        const instaBtn = document.getElementById('instaImportBtn');
+        if (instaBtn) {
+            instaBtn.addEventListener('click', () => {
+                this.importFromInstagram();
+            });
+        }
+
         // Process button
         document.getElementById('processBtn').addEventListener('click', () => {
             this.startProcessing();
@@ -587,6 +595,63 @@ class ComfyUIApp {
             this.showNotification('Error', 'Failed to clear queue', 'danger');
         } finally {
             this.setLoading('clearQueueBtn', false);
+        }
+    }
+
+    async importFromInstagram() {
+        const profile = document.getElementById('instaProfile').value.trim();
+        const username = document.getElementById('instaUser').value.trim();
+        const password = document.getElementById('instaPass').value;
+        const remember = document.getElementById('instaRemember').checked;
+        const maxImages = parseInt(document.getElementById('instaMax').value) || 20;
+
+        if (!profile || !username) {
+            this.showNotification('Instagram Import', 'Profile and username required', 'warning');
+            return;
+        }
+
+        const statusEl = document.getElementById('instaStatus');
+        if (statusEl) {
+            statusEl.classList.remove('d-none');
+            statusEl.textContent = 'Fetching images...';
+        }
+
+        try {
+            this.setLoading('instaImportBtn', true);
+            const response = await fetch('/instagram_profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    profile,
+                    username,
+                    password,
+                    remember,
+                    max_images: maxImages
+                })
+            });
+
+            const result = await response.json();
+
+            if (statusEl) {
+                statusEl.textContent = result.message;
+                statusEl.className = `alert alert-${result.status === 'success' ? 'info' : 'danger'}`;
+            }
+
+            if (result.status === 'success') {
+                this.showNotification('Instagram Import', result.message, 'success');
+                this.refreshStatus();
+            } else {
+                this.showNotification('Instagram Import', result.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Instagram import error:', error);
+            if (statusEl) {
+                statusEl.textContent = 'Failed to fetch images';
+                statusEl.className = 'alert alert-danger';
+            }
+            this.showNotification('Instagram Import', 'Failed to fetch images', 'danger');
+        } finally {
+            this.setLoading('instaImportBtn', false);
         }
     }
 
@@ -1354,7 +1419,8 @@ class ComfyUIApp {
                     'clearQueueBtn': 'fas fa-trash',
                     'resetBtn': 'fas fa-undo',
                     'reprocessBtn': 'fas fa-redo',
-                    'clearReprocessBtn': 'fas fa-times'
+                    'clearReprocessBtn': 'fas fa-times',
+                    'instaImportBtn': 'fab fa-instagram'
                 };
                 icon.className = iconMap[buttonId] || 'fas fa-cog';
             }
