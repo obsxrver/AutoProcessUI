@@ -67,10 +67,16 @@
                         <div class="mb-3">
                             <label for="instaPass" class="form-label">Password</label>
                             <input type="password" class="form-control" id="instaPass">
+                            <div class="form-text">Leave empty if you have a saved session</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="insta2FA" class="form-label">2FA Code (if required)</label>
+                            <input type="text" class="form-control" id="insta2FA" placeholder="123456">
+                            <div class="form-text">Enter 2FA code if prompted</div>
                         </div>
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="instaRemember">
-                            <label class="form-check-label" for="instaRemember">Remember me</label>
+                            <label class="form-check-label" for="instaRemember">Remember me (save session)</label>
                         </div>
                         <div class="mb-3">
                             <label for="instaMax" class="form-label">Max Images</label>
@@ -83,6 +89,23 @@
                         </div>
                         <div class="mt-3">
                             <div id="instaStatus" class="alert alert-info d-none">Ready</div>
+                            <!-- Challenge URL Display -->
+                            <div id="instaChallengeInfo" class="alert alert-warning d-none">
+                                <h6><i class="fas fa-exclamation-triangle"></i> Instagram Challenge Required</h6>
+                                <p id="instaChallengeText">Please complete verification in your browser.</p>
+                                <a id="instaChallengeLink" href="#" target="_blank" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-external-link-alt"></i> Open Challenge
+                                </a>
+                            </div>
+                            <!-- Manual Instructions Display -->
+                            <div id="instaManualInfo" class="alert alert-info d-none">
+                                <h6><i class="fas fa-info-circle"></i> Manual Session Setup</h6>
+                                <p>For better reliability, you can create a session file manually:</p>
+                                <button class="btn btn-sm btn-info" id="showInstructionsBtn">
+                                    <i class="fas fa-book"></i> Show Instructions
+                                </button>
+                                <pre id="instaInstructions" class="mt-2 d-none small bg-light p-2 rounded"></pre>
+                            </div>
                         </div>
                     </div>
                 </div>

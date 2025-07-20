@@ -1,127 +1,124 @@
-# New Features - ComfyUI Batch Processor
+# Enhanced Instagram Authentication
 
-## Enhanced Customizability Update
+## Overview
 
-This update adds comprehensive model selection and parameter tuning capabilities, plus fixes the stop button functionality.
+The Instagram import feature has been significantly improved to handle modern Instagram authentication challenges, including OAuth verification, 2FA, and security checkpoints.
 
-### 🎯 New Features
+## New Features
 
-#### 1. Model Selection
-- **Dynamic Model Loading**: Automatically detects and loads available models from your ComfyUI installation
-- **Real-time Updates**: Model list refreshes based on what's actually available in your ComfyUI models folder
-- **Easy Selection**: Simple dropdown interface to choose your desired checkpoint model
+### 1. Two-Factor Authentication (2FA) Support
+- Added 2FA code input field
+- Handles Instagram's 2FA requirement automatically
+- Clear prompts when 2FA is needed
 
-#### 2. Advanced Sampler Controls
+### 2. Challenge/Checkpoint Handling
+- Detects Instagram security challenges
+- Provides direct links to complete verification
+- Clear instructions for browser-based authentication
 
-##### Main Sampler Settings
-- **Steps**: Control the number of diffusion steps (1-150)
-- **CFG Scale**: Adjust classifier-free guidance strength (1.0-30.0)
-- **Sampler**: Choose from all available samplers (euler, dpmpp_2m_sde_gpu, etc.)
-- **Scheduler**: Select scheduling algorithm (karras, normal, exponential, etc.)
+### 3. Enhanced Error Handling
+- **Checkpoint Required**: When Instagram requires browser verification
+- **2FA Required**: When two-factor authentication is needed
+- **Rate Limited**: When too many login attempts are made
+- **Suspicious Activity**: When Instagram blocks automated access
+- **Profile Access Errors**: When profiles are private or don't exist
 
-##### Refiner Settings
-- **Steps**: Independent step control for refinement pass
-- **CFG Scale**: Separate CFG settings for refinement
-- **Sampler & Scheduler**: Different sampler/scheduler for refinement
-- **Denoise Strength**: Control how much the refiner modifies the image (0.1-1.0)
-- **Cycles**: Number of refinement passes (1-10)
+### 4. Session Management
+- Improved session file handling
+- Automatic session cleanup for corrupted files
+- Better session persistence with "Remember me" option
 
-#### 3. Fixed Stop Button Functionality
-- **Proper Cancellation**: Stop button now actually stops processing immediately
-- **Visual Feedback**: Enhanced stop button with pulsing animation
-- **State Management**: Correct button state handling throughout the process
-- **Task Cleanup**: Properly cancels running tasks and cleans up resources
+### 5. Manual Session Creation
+- Instructions for creating session files manually
+- Alternative authentication method for challenging cases
+- Command-line instructions for advanced users
 
-### 🚀 How to Use
+## How to Use
 
-#### Model & Settings Configuration
-1. **Load the Interface**: The model dropdown will automatically populate on page load
-2. **Select Model**: Choose your desired checkpoint from the dropdown
-3. **Tune Main Sampler**: Adjust steps, CFG, sampler, and scheduler for the main generation
-4. **Configure Refiner**: Set refinement parameters for enhanced output quality
-5. **Process Images**: Settings will be applied to all images in the batch
+### Basic Usage
+1. Enter the Instagram profile name you want to import from
+2. Enter your Instagram username
+3. Enter your password (optional if you have a saved session)
+4. Set max images to download
+5. Click "Import"
 
-#### Using the Stop Button
-1. **Start Processing**: Click "Process Images" to begin
-2. **Stop Anytime**: Button changes to "Stop Processing" - click to halt immediately
-3. **Immediate Response**: Processing stops within 1-2 seconds
-4. **Clean State**: Interface resets properly for new processing
+### With 2FA
+1. Follow basic usage steps
+2. If prompted for 2FA, enter your 6-digit code
+3. Retry the import
 
-### 🔧 Technical Implementation
+### Handling Challenges
+1. If Instagram requires verification, a challenge link will appear
+2. Click "Open Challenge" to complete verification in your browser
+3. After completing the challenge, retry the import
+4. Optionally, create a manual session file for future use
 
-#### Backend Changes
-- New `/get_models` endpoint that queries ComfyUI's object_info API
-- Enhanced processing logic that accepts custom parameters
-- Improved task cancellation with proper async handling
-- Dynamic workflow modification based on user settings
+### Manual Session Creation
+If you encounter repeated authentication issues:
 
-#### Frontend Enhancements
-- Automatic model/sampler loading on startup
-- Comprehensive form handling for all parameters
-- Enhanced button state management
-- Real-time validation and user feedback
+1. **Method 1 - Command Line**:
+   ```bash
+   pip install instaloader
+   instaloader --login your_username --sessionfile ./instagram_sessions/your_username.session
+   ```
 
-#### Workflow Integration
-- **Node 9** (CheckpointLoaderSimple): Model selection
-- **Node 12** (KSamplerAdvanced): Main sampler settings  
-- **Node 46** (DetailerForEach): Refiner configuration
-- **Dynamic Seeds**: Automatic randomization prevents cached results
+2. **Method 2 - Python Console**:
+   ```python
+   import instaloader
+   L = instaloader.Instaloader()
+   L.login("your_username", "your_password")  # Follow any 2FA prompts
+   L.save_session_to_file("./instagram_sessions/your_username.session")
+   ```
 
-### 📊 Default Settings
+3. Place the session file in the `instagram_sessions` directory
+4. Use the import feature without entering a password
 
-The interface provides sensible defaults based on the original workflow:
+## Troubleshooting
 
-```
-Model: juggernaut-ragnarok.safetensors
-Main Sampler:
-  - Steps: 80
-  - CFG: 4.0  
-  - Sampler: dpmpp_2m_sde_gpu
-  - Scheduler: karras
+### "Checkpoint Required" Error
+- This is Instagram's security measure
+- Complete the verification in your browser
+- Try again after verification
+- Consider creating a manual session file
 
-Refiner:
-  - Steps: 80
-  - CFG: 4.0
-  - Sampler: dpmpp_2m_sde_gpu  
-  - Scheduler: karras
-  - Denoise: 0.4
-  - Cycles: 2
-```
+### Rate Limiting
+- Wait a few hours before trying again
+- Consider using a manual session file
+- Reduce the number of import attempts
 
-### 🎨 UI Improvements
+### Suspicious Activity
+- Log in manually through Instagram.com first
+- Complete any security challenges
+- Wait before attempting automated access again
 
-- **Organized Layout**: Settings grouped logically with clear section headers
-- **Responsive Design**: Works well on different screen sizes
-- **Visual Feedback**: Icons and styling make the interface intuitive
-- **Form Validation**: Proper input limits and step values
-- **Enhanced Buttons**: Stop button has pulsing animation when active
+### Profile Not Found
+- Check that the profile name is correct
+- Ensure the profile is public
+- Verify you have permission to access the profile
 
-### 🧪 Testing
+## Best Practices
 
-Run the test script to verify functionality:
-```bash
-python test_features.py
-```
+1. **Use Session Files**: Enable "Remember me" to avoid repeated logins
+2. **Respect Rate Limits**: Don't make too many requests in a short time
+3. **Handle 2FA Properly**: Have your 2FA device ready when importing
+4. **Browser Verification**: Keep a browser tab open for Instagram challenges
+5. **Manual Sessions**: For problematic accounts, create session files manually
 
-This will test:
-- Model loading endpoint
-- Custom settings structure
-- Stop functionality
-- API responsiveness
+## Technical Details
 
-### 🔄 Backward Compatibility
+### Error Types
+- `checkpoint_required`: Instagram challenge needed
+- `verification_required`: Browser verification required
+- `2fa_required`: Two-factor authentication needed
+- `rate_limited`: Too many requests
+- `suspicious_activity`: Account flagged for automated access
+- `bad_credentials`: Invalid username/password
+- `profile_not_found`: Target profile doesn't exist or is private
 
-All existing functionality remains unchanged. The new features are additive:
-- Default values match the original workflow
-- Existing API endpoints continue to work
-- Previous processing behavior is maintained when using defaults
+### Session Files
+- Stored in `instagram_sessions/` directory
+- Named as `{username}.session`
+- Contains authentication tokens for reuse
+- Automatically cleaned up if corrupted
 
-### 💡 Usage Tips
-
-1. **Start Conservative**: Begin with default settings and adjust gradually
-2. **Test Settings**: Use a small batch to test new parameter combinations
-3. **Save Configurations**: Note successful settings for future use
-4. **Monitor GPU Usage**: Higher steps/cycles increase processing time
-5. **Use Stop Button**: Don't hesitate to stop and adjust if results aren't optimal
-
-This update transforms the batch processor from a fixed-workflow tool into a flexible, customizable ComfyUI frontend that gives you full control over the generation process while maintaining the ease of batch processing. 
+This enhanced system provides a much more robust Instagram import experience while handling the complexities of modern Instagram authentication. 

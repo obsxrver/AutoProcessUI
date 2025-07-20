@@ -644,3 +644,28 @@ input[type="number"] {
     70% { box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); }
     100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
 }
+
+/* Instagram Challenge & Instructions */
+#instaChallengeInfo, #instaManualInfo {
+    border-left: 4px solid #fd7e14;
+}
+
+#instaInstructions {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.instagram-card .form-text {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.instagram-card .alert h6 {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
