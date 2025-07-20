@@ -13,7 +13,9 @@ A multi-GPU batch image processing application for ComfyUI with both Gradio and 
 - **Two Interface Options**: Choose between Gradio or Flask web interface
 - **GPU-based Preview Management**: Throttles preview requests per GPU server to prevent overload
 - **Intelligent Queueing**: Manages preview requests to ensure final images load properly
-- **Instagram Import**: Login to Instagram, download images from a profile, filter to a single person and queue them automatically
+
+**Instagram Import**: Fetch images from an Instagram profile with optional session caching and automatic single-human filtering
+
 
 ## Installation
 
