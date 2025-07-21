@@ -585,7 +585,7 @@
   },
   "35": {
     "inputs": {
-      "control_net_name": "controlnet-depth-sdxl-1.0/diffusion_pytorch_model.fp16.bin"
+      "control_net_name": "controlnet-depth-sdxl-1.0/diffusion_pytorch_model.bin"
     },
     "class_type": "ControlNetLoader",
     "_meta": {
