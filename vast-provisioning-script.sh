@@ -4,6 +4,9 @@ source /venv/main/bin/activate
 COMFYUI_DIR=${WORKSPACE}/ComfyUI
 
 # Packages are installed after nodes so we can fix them...
+# This script provisions ComfyUI with all nodes and models required for:
+# - workflow.json (basic workflow)
+# - workflow-with-cnet.json (advanced workflow with ControlNet, pose detection, depth maps)
 
 APT_PACKAGES=(
     #"package-1"
@@ -24,6 +27,13 @@ PIP_PACKAGES=(
     "numpy>=1.24.0"
     "httpx==0.23.3"
     "httpcore==0.15.0"
+    "instaloader"
+    # Additional packages for workflow-with-cnet.json compatibility
+    "opencv-python-headless>=4.8.0"  # For ControlNet aux preprocessors
+    "mediapipe>=0.10.0"  # For pose detection
+    "transformers>=4.25.0"  # For various AI models
+    "timm>=0.6.12"  # For vision transformers
+    "addict>=2.4.0"  # For configuration handling
 )
 
 NODES=(
@@ -33,6 +43,8 @@ NODES=(
     "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
     "https://github.com/1038lab/ComfyUI-RMBG"
     "https://github.com/ltdrdata/ComfyUI-Manager"
+    "https://github.com/rgthree/rgthree-comfy.git"  # For Image Comparer node
+    "https://github.com/Fannovel16/comfyui_controlnet_aux.git"  # For OpenPose and Depth preprocessors
 )
 
 WORKFLOWS=(
@@ -135,6 +147,26 @@ function provisioning_start() {
     cd ${COMFYUI_DIR}/models/checkpoints
     if [ ! -f "juggernaut-ragnarok.safetensors" ]; then
         wget -c https://civitai.com/api/download/models/1759168 -O juggernaut-ragnarok.safetensors
+    fi
+    
+    # ControlNet models (required for workflow-with-cnet.json)
+    cd ${COMFYUI_DIR}/models
+    mkdir -p controlnet
+    cd controlnet
+    
+    # OpenPose ControlNet for SDXL
+    mkdir -p controlnet-openpose-sdxl-1.0
+    cd controlnet-openpose-sdxl-1.0
+    if [ ! -f "diffusion_pytorch_model.bin" ]; then
+        wget -c https://huggingface.co/thibaud/controlnet-openpose-sdxl-1.0/resolve/main/diffusion_pytorch_model.bin
+    fi
+    
+    # Depth ControlNet for SDXL
+    cd ${COMFYUI_DIR}/models/controlnet
+    mkdir -p controlnet-depth-sdxl-1.0
+    cd controlnet-depth-sdxl-1.0
+    if [ ! -f "diffusion_pytorch_model.fp16.bin" ]; then
+        wget -c https://huggingface.co/diffusers/controlnet-depth-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.bin
     fi
     
     
