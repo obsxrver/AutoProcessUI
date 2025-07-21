@@ -28,6 +28,9 @@ from instagram_utils import fetch_profile_images, filter_single_human_images
 # Import the ComfyUI processing logic
 from batchProcess import ComfyUIMultiGPU
 
+# Import workflow manager
+from workflow_manager import WorkflowManager
+
 # Import ComfyUI websocket handler if available
 try:
     from comfyui_websocket import parse_comfyui_binary_message, handle_preview_image
@@ -66,12 +69,13 @@ class FlaskComfyUIApp:
         self.processed_inputs_dir = Path('processed_inputs')
         self.processed_inputs_dir.mkdir(exist_ok=True)
         
-        # Load default prompts from workflow.json
-        with open("workflow.json", 'r') as f:
-            workflow = json.load(f)
+        # Initialize workflow manager
+        self.workflow_manager = WorkflowManager()
         
-        self.default_positive = workflow["10"]["inputs"]["text"]
-        self.default_negative = workflow["15"]["inputs"]["text"]
+        # Load default prompts from current workflow
+        default_prompts = self.workflow_manager.get_default_prompts()
+        self.default_positive = default_prompts['positive']
+        self.default_negative = default_prompts['negative']
         
         # Store processing results
         self.results_cache = {}
@@ -147,7 +151,7 @@ class FlaskComfyUIApp:
             print(f"Initializing with {num_gpus} GPU(s)")
             
             self.orchestrator = ComfyUIMultiGPU(
-                workflow_path="workflow.json",
+                workflow_manager=self.workflow_manager,
                 num_gpus=num_gpus,
                 comfyui_path=comfyui_path,
                 base_port=8200
@@ -875,7 +879,7 @@ class FlaskComfyUIApp:
                 return None
             
             # Modify workflow with custom prompts and settings
-            workflow_copy = self.orchestrator.modify_workflow_for_image(upload_result['name'])
+            workflow_copy = self.workflow_manager.modify_workflow_for_image(upload_result['name'])
             
             # Use default settings if custom_settings not provided
             if custom_settings is None:
@@ -888,31 +892,11 @@ class FlaskComfyUIApp:
                     'refiner_denoise': 0.4, 'refiner_cycles': 2
                 }
             
-            # Update prompts in the workflow
-            if "10" in workflow_copy:
-                workflow_copy["10"]["inputs"]["text"] = positive_prompt
-            if "15" in workflow_copy:
-                workflow_copy["15"]["inputs"]["text"] = negative_prompt
-            
-            # Update model selection (node 9 - CheckpointLoaderSimple)
-            if "9" in workflow_copy:
-                workflow_copy["9"]["inputs"]["ckpt_name"] = custom_settings['model']
-            
-            # Update main sampler settings (node 12 - KSamplerAdvanced)
-            if "12" in workflow_copy:
-                workflow_copy["12"]["inputs"]["steps"] = custom_settings['main_steps']
-                workflow_copy["12"]["inputs"]["cfg"] = custom_settings['main_cfg']
-                workflow_copy["12"]["inputs"]["sampler_name"] = custom_settings['main_sampler']
-                workflow_copy["12"]["inputs"]["scheduler"] = custom_settings['main_scheduler']
-            
-            # Update refiner settings (node 46 - DetailerForEach)
-            if "46" in workflow_copy:
-                workflow_copy["46"]["inputs"]["steps"] = custom_settings['refiner_steps']
-                workflow_copy["46"]["inputs"]["cfg"] = custom_settings['refiner_cfg']
-                workflow_copy["46"]["inputs"]["sampler_name"] = custom_settings['refiner_sampler']
-                workflow_copy["46"]["inputs"]["scheduler"] = custom_settings['refiner_scheduler']
-                workflow_copy["46"]["inputs"]["denoise"] = custom_settings['refiner_denoise']
-                workflow_copy["46"]["inputs"]["cycle"] = custom_settings['refiner_cycles']
+            # Update workflow using workflow manager
+            self.workflow_manager.update_prompts(workflow_copy, positive_prompt, negative_prompt)
+            self.workflow_manager.update_model_settings(workflow_copy, custom_settings['model'])
+            self.workflow_manager.update_sampler_settings(workflow_copy, custom_settings)
+            self.workflow_manager.update_refiner_settings(workflow_copy, custom_settings)
             
             # Force fresh execution by randomizing all seeds
             # This ensures ComfyUI doesn't return cached results
@@ -1072,9 +1056,13 @@ class FlaskComfyUIApp:
                                     return new_path
                                 counter += 1
                         
-                        # First output (node 20)
-                        if "20" in outputs and 'images' in outputs["20"]:
-                            for img_info in outputs["20"]['images']:
+                        # Get output node IDs from workflow manager
+                        output_nodes = self.workflow_manager.get_output_node_ids()
+                        
+                        # First output (unrefined)
+                        output_node_id = output_nodes.get('output')
+                        if output_node_id and output_node_id in outputs and 'images' in outputs[output_node_id]:
+                            for img_info in outputs[output_node_id]['images']:
                                 if save_unrefined:  # Only save if user wants unrefined images
                                     filename = img_info['filename']
                                     subfolder = img_info.get('subfolder', '')
@@ -1094,9 +1082,10 @@ class FlaskComfyUIApp:
                                                 f.write(content)
                                             output_files.append(str(output_path))
                         
-                        # Second output (node 52 - refined)
-                        if "52" in outputs and 'images' in outputs["52"]:
-                            for img_info in outputs["52"]['images']:
+                        # Second output (refined)
+                        refined_node_id = output_nodes.get('output_refined')
+                        if refined_node_id and refined_node_id in outputs and 'images' in outputs[refined_node_id]:
+                            for img_info in outputs[refined_node_id]['images']:
                                 filename = img_info['filename']
                                 subfolder = img_info.get('subfolder', '')
                                 
@@ -1282,6 +1271,67 @@ def index():
                          default_negative=batch_app.default_negative,
                          cuda_devices=batch_app.detect_cuda_devices())
 
+@app.route('/get_workflows')
+def get_workflows():
+    """Get available workflows"""
+    try:
+        workflows = batch_app.workflow_manager.get_available_workflows()
+        current_workflow = batch_app.workflow_manager.current_workflow
+        
+        return jsonify({
+            "status": "success",
+            "workflows": workflows,
+            "current": current_workflow
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Error getting workflows: {str(e)}"
+        })
+
+@app.route('/set_workflow', methods=['POST'])
+def set_workflow():
+    """Set the current workflow"""
+    try:
+        data = request.get_json()
+        workflow_key = data.get('workflow')
+        
+        if not workflow_key:
+            return jsonify({
+                "status": "error",
+                "message": "Workflow key required"
+            })
+        
+        success = batch_app.workflow_manager.set_current_workflow(workflow_key)
+        
+        if success:
+            # Update default prompts
+            default_prompts = batch_app.workflow_manager.get_default_prompts()
+            batch_app.default_positive = default_prompts['positive']
+            batch_app.default_negative = default_prompts['negative']
+            
+            # Update orchestrator if it exists
+            if batch_app.orchestrator:
+                batch_app.orchestrator.workflow_manager = batch_app.workflow_manager
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Switched to workflow: {batch_app.workflow_manager.workflows[workflow_key]['name']}",
+                "default_positive": batch_app.default_positive,
+                "default_negative": batch_app.default_negative
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "Invalid workflow key"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Error setting workflow: {str(e)}"
+        })
+
 @app.route('/get_models')
 def get_models():
     """Get available models from ComfyUI"""
@@ -1423,6 +1473,17 @@ def process_images():
     positive_prompt = data.get('positive_prompt', batch_app.default_positive)
     negative_prompt = data.get('negative_prompt', batch_app.default_negative)
     save_unrefined = data.get('save_unrefined', True)
+    
+    # Handle workflow selection
+    workflow_key = data.get('workflow')
+    if workflow_key and workflow_key != batch_app.workflow_manager.current_workflow:
+        success = batch_app.workflow_manager.set_current_workflow(workflow_key)
+        if not success:
+            return jsonify({"status": "error", "message": f"Invalid workflow: {workflow_key}"})
+        
+        # Update orchestrator workflow manager reference
+        if batch_app.orchestrator:
+            batch_app.orchestrator.workflow_manager = batch_app.workflow_manager
     
     # Extract custom parameters
     custom_settings = {
@@ -1641,6 +1702,17 @@ def reprocess_images():
     positive_prompt = data.get('positive_prompt', batch_app.default_positive)
     negative_prompt = data.get('negative_prompt', batch_app.default_negative)
     save_unrefined = data.get('save_unrefined', True)
+    
+    # Handle workflow selection
+    workflow_key = data.get('workflow')
+    if workflow_key and workflow_key != batch_app.workflow_manager.current_workflow:
+        success = batch_app.workflow_manager.set_current_workflow(workflow_key)
+        if not success:
+            return jsonify({"status": "error", "message": f"Invalid workflow: {workflow_key}"})
+        
+        # Update orchestrator workflow manager reference
+        if batch_app.orchestrator:
+            batch_app.orchestrator.workflow_manager = batch_app.workflow_manager
     
     # Extract custom parameters
     custom_settings = {

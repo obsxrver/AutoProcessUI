@@ -32,6 +32,7 @@ class ComfyUIApp {
         this.setupKeyboardShortcuts();
         this.startStatusPolling();
         this.loadAvailableModels();
+        this.loadAvailableWorkflows();
     }
 
     loadUserPreferences() {
@@ -732,6 +733,7 @@ class ComfyUIApp {
         const positivePrompt = document.getElementById('positivePrompt').value;
         const negativePrompt = document.getElementById('negativePrompt').value;
         const saveUnrefined = document.getElementById('saveUnrefinedToggle').checked;
+        const selectedWorkflow = document.getElementById('workflowSelect').value;
         
         // Get custom settings from the form
         const customSettings = this.getCustomSettings();
@@ -750,6 +752,7 @@ class ComfyUIApp {
                     positive_prompt: positivePrompt,
                     negative_prompt: negativePrompt,
                     save_unrefined: saveUnrefined,
+                    workflow: selectedWorkflow,
                     ...customSettings
                 })
             });
@@ -1024,6 +1027,7 @@ class ComfyUIApp {
         const positivePrompt = document.getElementById('positivePrompt').value;
         const negativePrompt = document.getElementById('negativePrompt').value;
         const saveUnrefined = document.getElementById('saveUnrefinedToggle').checked;
+        const selectedWorkflow = document.getElementById('workflowSelect').value;
         
         // Get custom settings from the form
         const customSettings = this.getCustomSettings();
@@ -1049,6 +1053,7 @@ class ComfyUIApp {
                     positive_prompt: positivePrompt,
                     negative_prompt: negativePrompt,
                     save_unrefined: saveUnrefined,
+                    workflow: selectedWorkflow,
                     ...customSettings
                 })
             });
@@ -1710,6 +1715,106 @@ class ComfyUIApp {
             console.error('Error loading models:', error);
             this.showNotification('Warning', 'Failed to load available models. Using defaults.', 'warning');
         }
+    }
+
+    async loadAvailableWorkflows() {
+        try {
+            const response = await fetch('/get_workflows');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const workflowSelect = document.getElementById('workflowSelect');
+                workflowSelect.innerHTML = '';
+                
+                // Populate workflow options
+                for (const [key, name] of Object.entries(data.workflows)) {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = name;
+                    if (key === data.current) {
+                        option.selected = true;
+                    }
+                    workflowSelect.appendChild(option);
+                }
+                
+                // Add change event listener
+                workflowSelect.addEventListener('change', this.handleWorkflowChange.bind(this));
+                
+                // Show current workflow status
+                const statusDiv = document.getElementById('workflowStatus');
+                statusDiv.className = 'alert alert-success';
+                statusDiv.innerHTML = `<i class="fas fa-check-circle"></i> Current: ${data.workflows[data.current]}`;
+                statusDiv.classList.remove('d-none');
+                
+            } else {
+                console.warn('Failed to load workflows:', data.message);
+                this.showWorkflowError('Failed to load workflows');
+            }
+        } catch (error) {
+            console.error('Error loading workflows:', error);
+            this.showWorkflowError('Error loading workflows');
+        }
+    }
+
+    async handleWorkflowChange(event) {
+        const workflowKey = event.target.value;
+        if (!workflowKey) return;
+        
+        try {
+            this.showWorkflowStatus('Switching workflow...', 'info');
+            
+            const response = await fetch('/set_workflow', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    workflow: workflowKey
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                this.showWorkflowStatus(data.message, 'success');
+                
+                // Update default prompts if provided
+                if (data.default_positive !== undefined) {
+                    document.getElementById('positivePrompt').value = data.default_positive;
+                }
+                if (data.default_negative !== undefined) {
+                    document.getElementById('negativePrompt').value = data.default_negative;
+                }
+                
+                this.showNotification('Workflow Changed', data.message, 'success');
+            } else {
+                this.showWorkflowError(data.message);
+                this.showNotification('Workflow Error', data.message, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Error changing workflow:', error);
+            this.showWorkflowError('Failed to change workflow');
+            this.showNotification('Workflow Error', 'Failed to change workflow', 'danger');
+        }
+    }
+
+    showWorkflowStatus(message, type = 'info') {
+        const statusDiv = document.getElementById('workflowStatus');
+        const iconMap = {
+            'info': 'fas fa-info-circle',
+            'success': 'fas fa-check-circle',
+            'warning': 'fas fa-exclamation-triangle',
+            'danger': 'fas fa-exclamation-circle'
+        };
+        
+        statusDiv.className = `alert alert-${type}`;
+        statusDiv.innerHTML = `<i class="${iconMap[type]}"></i> ${message}`;
+        statusDiv.classList.remove('d-none');
+    }
+
+    showWorkflowError(message) {
+        this.showWorkflowStatus(message, 'danger');
     }
 }
 

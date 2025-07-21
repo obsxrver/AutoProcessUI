@@ -13,15 +13,11 @@ import sys
 import mimetypes
 
 class ComfyUIMultiGPU:
-    def __init__(self, workflow_path: str, num_gpus: int = 8, comfyui_path: str = "/workspace/ComfyUI", base_port: int = 8200):
-        self.workflow_path = workflow_path
+    def __init__(self, workflow_manager, num_gpus: int = 8, comfyui_path: str = "/workspace/ComfyUI", base_port: int = 8200):
+        self.workflow_manager = workflow_manager
         self.num_gpus = num_gpus
         self.comfyui_path = comfyui_path
         self.base_ports = list(range(base_port, base_port + num_gpus))  # 8200, 8201, ..., 8207
-        
-        # Load the workflow (already in API format)
-        with open(workflow_path, 'r') as f:
-            self.workflow = json.load(f)
     
     def start_comfyui_instances(self):
         """Start ComfyUI instances on different GPUs"""
@@ -210,14 +206,7 @@ class ComfyUIMultiGPU:
     
     def modify_workflow_for_image(self, image_filename: str) -> Dict:
         """Modify the workflow to use a specific image"""
-        # Create a deep copy of the workflow
-        workflow_copy = json.loads(json.dumps(self.workflow))
-        
-        # Find the LoadImage node (id: "1") and update its image
-        if "1" in workflow_copy:
-            workflow_copy["1"]["inputs"]["image"] = image_filename
-        
-        return workflow_copy
+        return self.workflow_manager.modify_workflow_for_image(image_filename)
     
     async def process_image_async(self, session: aiohttp.ClientSession,
                                 gpu_id: int, image_path: str, original_image_name: str) -> Dict:
@@ -347,9 +336,15 @@ class ComfyUIMultiGPU:
 
 # Usage example
 if __name__ == "__main__":
+    # Import the workflow manager
+    from workflow_manager import WorkflowManager
+    
+    # Initialize workflow manager
+    workflow_manager = WorkflowManager()
+    
     # Initialize the orchestrator
     orchestrator = ComfyUIMultiGPU(
-        workflow_path="workflow.json",  # Your API format workflow
+        workflow_manager=workflow_manager,
         num_gpus=8,
         comfyui_path="/workspace/ComfyUI",
         base_port=8200  # Starting port
