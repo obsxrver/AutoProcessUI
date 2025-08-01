@@ -66,7 +66,7 @@
   "12": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 602123517594613,
+      "noise_seed": 619368807466847,
       "steps": 81,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -182,6 +182,88 @@
       "title": "OUTPUT"
     }
   },
+  "30": {
+    "inputs": {
+      "prompt": "vest",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "31": {
+    "inputs": {
+      "prompt": "shirt",
+      "threshold": 0.30000000000000004,
+      "sam_model": [
+        "16",
+        0
+      ],
+      "grounding_dino_model": [
+        "18",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "33": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "30",
+        1
+      ],
+      "source": [
+        "31",
+        1
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
+  "34": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "operation": "add",
+      "destination": [
+        "65",
+        1
+      ],
+      "source": [
+        "33",
+        0
+      ]
+    },
+    "class_type": "MaskComposite",
+    "_meta": {
+      "title": "MaskComposite"
+    }
+  },
   "39": {
     "inputs": {
       "x": 0,
@@ -248,7 +330,7 @@
       "guide_size": 1024,
       "guide_size_for": false,
       "max_size": 2048,
-      "seed": 470558426468750,
+      "seed": 717407522802819,
       "steps": 80,
       "cfg": 4,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -482,8 +564,8 @@
       "y": 0,
       "operation": "add",
       "destination": [
-        "65",
-        1
+        "34",
+        0
       ],
       "source": [
         "57",
@@ -571,6 +653,30 @@
     "inputs": {
       "mask": [
         "65",
+        1
+      ]
+    },
+    "class_type": "AILab_MaskPreview",
+    "_meta": {
+      "title": "Mask Preview (RMBG) 🎭"
+    }
+  },
+  "67": {
+    "inputs": {
+      "mask": [
+        "31",
+        1
+      ]
+    },
+    "class_type": "AILab_MaskPreview",
+    "_meta": {
+      "title": "Mask Preview (RMBG) 🎭"
+    }
+  },
+  "68": {
+    "inputs": {
+      "mask": [
+        "30",
         1
       ]
     },
