@@ -166,7 +166,7 @@ function provisioning_start() {
     mkdir -p controlnet-depth-sdxl-1.0
     cd controlnet-depth-sdxl-1.0
     if [ ! -f "diffusion_pytorch_model.fp16.bin" ]; then
-        wget -c https://huggingface.co/diffusers/controlnet-depth-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.bin
+        wget -c https://huggingface.co/diffusers/controlnet-depth-sdxl-1.0/resolve/main/diffusion_pytorch_model.bin
     fi
     
     
