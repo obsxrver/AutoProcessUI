@@ -298,7 +298,7 @@
   "42": {
     "inputs": {
       "head": "fooocus_inpaint_head.pth",
-      "patch": "inpaint_v26.fooocus.patch"
+      "patch": "inpaint_v25.fooocus.patch"
     },
     "class_type": "INPAINT_LoadFooocusInpaint",
     "_meta": {
