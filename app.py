@@ -1401,7 +1401,6 @@ def instagram_profile():
     password = data.get('password')
     remember = bool(data.get('remember'))
     max_images = int(data.get('max_images', 20))
-    two_factor_code = data.get('two_factor_code')
 
     if not profile or not login_user:
         return jsonify({"status": "error", "message": "Profile and username required"})
@@ -1409,7 +1408,7 @@ def instagram_profile():
     try:
         # Get images with enhanced error handling
         downloaded, info = fetch_profile_images(
-            profile, login_user, password, remember, max_images, two_factor_code
+            profile, login_user, password, remember, max_images
         )
         
         # If there was an error during fetch, return the error info

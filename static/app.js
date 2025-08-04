@@ -603,7 +603,6 @@ class ComfyUIApp {
         const profile = document.getElementById('instaProfile').value.trim();
         const username = document.getElementById('instaUser').value.trim();
         const password = document.getElementById('instaPass').value;
-        const twoFactorCode = document.getElementById('insta2FA').value.trim();
         const remember = document.getElementById('instaRemember').checked;
         const maxImages = parseInt(document.getElementById('instaMax').value) || 20;
 
@@ -632,7 +631,6 @@ class ComfyUIApp {
                     profile,
                     username,
                     password,
-                    two_factor_code: twoFactorCode || null,
                     remember,
                     max_images: maxImages
                 })
@@ -657,10 +655,9 @@ class ComfyUIApp {
                 // Handle different error types
                 if (result.error_type === 'checkpoint_required' || result.error_type === 'verification_required') {
                     this.showInstagramChallenge(result.challenge_url, result.message);
-                } else if (result.error_type === '2fa_required') {
-                    this.showNotification('2FA Required', 
-                        'Please enter your 2FA code and try again', 'warning');
-                    document.getElementById('insta2FA')?.focus();
+                } else if (result.error_type === '2fa_unsupported') {
+                    this.showNotification('2FA Not Supported', 
+                        'Two-factor authentication is not supported. Please create a session file manually.', 'warning');
                 } else if (result.error_type === 'rate_limited') {
                     this.showNotification('Rate Limited', 
                         'Too many login attempts. Please wait a few hours and try again', 'warning');

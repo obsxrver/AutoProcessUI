@@ -6,6 +6,9 @@ import cv2
 import time
 import re
 
+# A realistic user-agent can help avoid Instagram's bot detection
+USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
+
 
 class InstagramAuthError(Exception):
     """Custom exception for Instagram authentication issues"""
@@ -27,12 +30,13 @@ def _parse_challenge_url(error_message: str) -> Optional[str]:
 
 
 def _login(username: str, password: str | None, remember: bool, 
-          two_factor_code: str | None = None, session_dir: str = "instagram_sessions") -> instaloader.Instaloader:
-    """Enhanced Instagram login with better error handling and 2FA support"""
+          session_dir: str = "instagram_sessions") -> instaloader.Instaloader:
+    """Enhanced Instagram login with better error handling."""
     Path(session_dir).mkdir(exist_ok=True)
     session_file = Path(session_dir) / f"{username}.session"
     
     L = instaloader.Instaloader(
+        user_agent=USER_AGENT,
         download_video_thumbnails=False,
         download_videos=False,
         download_comments=False,
@@ -66,38 +70,20 @@ def _login(username: str, password: str | None, remember: bool,
     
     try:
         # Attempt login
-        if two_factor_code:
-            print(f"🔐 Attempting login with 2FA for {username}...")
-            # For 2FA, we need to handle this differently
-            # Note: instaloader doesn't directly support 2FA in a single call
-            # This is a placeholder for enhanced 2FA handling
-            L.login(username, password)
-        else:
-            print(f"🔑 Attempting login for {username}...")
-            L.login(username, password)
+        print(f"🔑 Attempting login for {username}...")
+        L.login(username, password)
         
-        print(f"✓ Login successful for {username}")
-        
-        # Save session if requested
-        if remember:
-            try:
-                L.save_session_to_file(str(session_file))
-                print(f"✓ Session saved for {username}")
-            except Exception as e:
-                print(f"⚠️ Failed to save session: {e}")
-        
-        return L
-        
+    except instaloader.exceptions.TwoFactorAuthRequiredException:
+        # The user has indicated 2FA is not desired.
+        raise InstagramAuthError(
+            "Two-factor authentication is required by Instagram, but this feature is not supported in the current setup.",
+            "2fa_unsupported"
+        )
+    
     except instaloader.exceptions.BadCredentialsException:
         raise InstagramAuthError(
             "Invalid username or password. Please check your credentials.",
             "bad_credentials"
-        )
-    
-    except instaloader.exceptions.TwoFactorAuthRequiredException:
-        raise InstagramAuthError(
-            "Two-factor authentication required. Please provide your 2FA code.",
-            "2fa_required"
         )
     
     except instaloader.exceptions.ConnectionException as e:
@@ -150,6 +136,18 @@ def _login(username: str, password: str | None, remember: bool,
             f"Login failed: {error_str}",
             "unknown_error"
         )
+    
+    print(f"✓ Login successful for {username}")
+    
+    # Save session if requested
+    if remember:
+        try:
+            L.save_session_to_file(str(session_file))
+            print(f"✓ Session saved for {username}")
+        except Exception as e:
+            print(f"⚠️ Failed to save session: {e}")
+    
+    return L
 
 
 def create_session_manually(username: str, session_dir: str = "instagram_sessions") -> str:
@@ -163,7 +161,7 @@ To create a session file manually:
 1. Install instaloader: pip install instaloader
 2. Run this command in terminal:
    instaloader --login {username} --sessionfile {session_file}
-3. Follow the prompts to complete login (including 2FA if required)
+3. Follow the prompts to complete login.
 4. The session file will be saved and can be used by this application
 
 Alternative method:
@@ -171,7 +169,7 @@ Alternative method:
 2. Run:
    import instaloader
    L = instaloader.Instaloader()
-   L.login("{username}", "your_password")  # Follow any 2FA prompts
+   L.login("{username}", "your_password")
    L.save_session_to_file("{session_file}")
 
 Session file location: {session_file}
@@ -181,7 +179,6 @@ Session file location: {session_file}
 
 def fetch_profile_images(profile: str, login_user: str, password: str | None = None,
                           remember: bool = False, max_images: int = 20,
-                          two_factor_code: str | None = None,
                           output_dir: str = "instagram_downloads") -> Tuple[List[str], dict]:
     """
     Fetch images from Instagram profile with enhanced error handling
@@ -199,7 +196,7 @@ def fetch_profile_images(profile: str, login_user: str, password: str | None = N
     }
     
     try:
-        L = _login(login_user, password, remember, two_factor_code)
+        L = _login(login_user, password, remember)
         
         try:
             profile_obj = instaloader.Profile.from_username(L.context, profile)
@@ -269,7 +266,7 @@ def fetch_profile_images(profile: str, login_user: str, password: str | None = N
         })
         
         # Add manual instructions for certain error types
-        if e.error_type in ["checkpoint_required", "verification_required", "2fa_required"]:
+        if e.error_type in ["checkpoint_required", "verification_required"]:
             info["manual_instructions"] = create_session_manually(login_user)
         
         return [], info
