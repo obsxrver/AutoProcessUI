@@ -300,13 +300,7 @@ class ComfyUIApp {
             this.clearUploadQueue();
         });
 
-        // Instagram import button
-        const instaBtn = document.getElementById('instaImportBtn');
-        if (instaBtn) {
-            instaBtn.addEventListener('click', () => {
-                this.importFromInstagram();
-            });
-        }
+        
 
         // Process button
         document.getElementById('processBtn').addEventListener('click', () => {
@@ -599,132 +593,6 @@ class ComfyUIApp {
         }
     }
 
-    async importFromInstagram() {
-        const profile = document.getElementById('instaProfile').value.trim();
-        const username = document.getElementById('instaUser').value.trim();
-        const password = document.getElementById('instaPass').value;
-        const remember = document.getElementById('instaRemember').checked;
-        const maxImages = parseInt(document.getElementById('instaMax').value) || 20;
-
-        if (!profile || !username) {
-            this.showNotification('Instagram Import', 'Profile and username required', 'warning');
-            return;
-        }
-
-        // Hide previous error/challenge displays
-        document.getElementById('instaChallengeInfo')?.classList.add('d-none');
-        document.getElementById('instaManualInfo')?.classList.add('d-none');
-
-        const statusEl = document.getElementById('instaStatus');
-        if (statusEl) {
-            statusEl.classList.remove('d-none');
-            statusEl.textContent = 'Fetching images...';
-            statusEl.className = 'alert alert-info';
-        }
-
-        try {
-            this.setLoading('instaImportBtn', true);
-            const response = await fetch('/instagram_profile', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    profile,
-                    username,
-                    password,
-                    remember,
-                    max_images: maxImages
-                })
-            });
-
-            const result = await response.json();
-
-            if (statusEl) {
-                statusEl.textContent = result.message;
-                statusEl.className = `alert alert-${result.status === 'success' ? 'success' : 'danger'}`;
-            }
-
-            if (result.status === 'success') {
-                let message = `Successfully imported! Fetched: ${result.fetched}, Kept: ${result.kept}`;
-                if (result.warning) {
-                    message += ` (${result.warning})`;
-                }
-                this.showNotification('Instagram Import', message, 'success');
-                this.refreshStatus();
-                
-            } else {
-                // Handle different error types
-                if (result.error_type === 'checkpoint_required' || result.error_type === 'verification_required') {
-                    this.showInstagramChallenge(result.challenge_url, result.message);
-                } else if (result.error_type === '2fa_unsupported') {
-                    this.showNotification('2FA Not Supported', 
-                        'Two-factor authentication is not supported. Please create a session file manually.', 'warning');
-                } else if (result.error_type === 'rate_limited') {
-                    this.showNotification('Rate Limited', 
-                        'Too many login attempts. Please wait a few hours and try again', 'warning');
-                } else if (result.error_type === 'suspicious_activity') {
-                    this.showNotification('Suspicious Activity', 
-                        'Login blocked. Please log in manually through Instagram.com first', 'warning');
-                }
-                
-                // Show manual instructions for certain error types
-                if (result.manual_instructions) {
-                    this.showManualInstructions(result.manual_instructions);
-                }
-                
-                this.showNotification('Instagram Import', result.message, 'danger');
-            }
-        } catch (error) {
-            console.error('Instagram import error:', error);
-            if (statusEl) {
-                statusEl.textContent = 'Failed to fetch images';
-                statusEl.className = 'alert alert-danger';
-            }
-            this.showNotification('Instagram Import', 'Failed to fetch images', 'danger');
-        } finally {
-            this.setLoading('instaImportBtn', false);
-        }
-    }
-    
-    showInstagramChallenge(challengeUrl, message) {
-        const challengeDiv = document.getElementById('instaChallengeInfo');
-        const challengeText = document.getElementById('instaChallengeText');
-        const challengeLink = document.getElementById('instaChallengeLink');
-        
-        if (challengeDiv && challengeText && challengeLink) {
-            challengeText.textContent = message;
-            
-            if (challengeUrl) {
-                challengeLink.href = challengeUrl;
-                challengeLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open Challenge';
-            } else {
-                challengeLink.href = 'https://www.instagram.com';
-                challengeLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Open Instagram.com';
-            }
-            
-            challengeDiv.classList.remove('d-none');
-        }
-    }
-    
-    showManualInstructions(instructions) {
-        const manualDiv = document.getElementById('instaManualInfo');
-        const instructionsEl = document.getElementById('instaInstructions');
-        const showBtn = document.getElementById('showInstructionsBtn');
-        
-        if (manualDiv && instructionsEl && showBtn) {
-            instructionsEl.textContent = instructions;
-            
-            // Toggle instructions display
-            showBtn.onclick = () => {
-                const isHidden = instructionsEl.classList.contains('d-none');
-                instructionsEl.classList.toggle('d-none', !isHidden);
-                showBtn.innerHTML = isHidden ? 
-                    '<i class="fas fa-eye-slash"></i> Hide Instructions' : 
-                    '<i class="fas fa-book"></i> Show Instructions';
-            };
-            
-            manualDiv.classList.remove('d-none');
-        }
-    }
 
     async startProcessing() {
         const positivePrompt = document.getElementById('positivePrompt').value;
@@ -1495,7 +1363,6 @@ class ComfyUIApp {
                     'resetBtn': 'fas fa-undo',
                     'reprocessBtn': 'fas fa-redo',
                     'clearReprocessBtn': 'fas fa-times',
-                    'instaImportBtn': 'fab fa-instagram'
                 };
                 icon.className = iconMap[buttonId] || 'fas fa-cog';
             }

@@ -23,7 +23,6 @@ import struct
 from PIL import Image
 import io
 import requests
-from instagram_utils import fetch_profile_images, filter_single_human_images
 
 # Import the ComfyUI processing logic
 from batchProcess import ComfyUIMultiGPU
@@ -1392,67 +1391,6 @@ def upload_files():
     return jsonify(result)
 
 
-@app.route('/instagram_profile', methods=['POST'])
-def instagram_profile():
-    """Fetch images from an Instagram profile and queue them"""
-    data = request.get_json()
-    profile = data.get('profile')
-    login_user = data.get('username')
-    password = data.get('password')
-    remember = bool(data.get('remember'))
-    max_images = int(data.get('max_images', 20))
-
-    if not profile or not login_user:
-        return jsonify({"status": "error", "message": "Profile and username required"})
-
-    try:
-        # Get images with enhanced error handling
-        downloaded, info = fetch_profile_images(
-            profile, login_user, password, remember, max_images
-        )
-        
-        # If there was an error during fetch, return the error info
-        if info['status'] == 'error':
-            response = {
-                "status": "error",
-                "message": info['error_message'],
-                "error_type": info['error_type'],
-                "fetched": 0,
-                "kept": 0
-            }
-            
-            # Add specific fields for different error types
-            if info.get('challenge_url'):
-                response['challenge_url'] = info['challenge_url']
-            if info.get('manual_instructions'):
-                response['manual_instructions'] = info['manual_instructions']
-                
-            return jsonify(response)
-        
-        # Filter images for single human faces
-        filtered = filter_single_human_images(downloaded)
-        
-        # Add to upload queue
-        result = batch_app.add_paths_to_upload_queue(filtered)
-        
-        # Enhance result with fetch information
-        result['fetched'] = len(downloaded)
-        result['kept'] = len(filtered)
-        result['fetch_status'] = info['status']
-        
-        # Add warning if partial success
-        if info['status'] == 'partial_success':
-            result['warning'] = info['error_message']
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        return jsonify({
-            "status": "error", 
-            "message": f"Unexpected error: {str(e)}",
-            "error_type": "unexpected_error"
-        })
-
 @app.route('/clear_queue', methods=['POST'])
 def clear_queue():
     """Clear upload queue"""
@@ -1826,8 +1764,6 @@ if __name__ == '__main__':
     os.makedirs('processed_inputs', exist_ok=True)
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static', exist_ok=True)
-    os.makedirs('instagram_sessions', exist_ok=True)  # For Instagram authentication
-    os.makedirs('instagram_downloads', exist_ok=True)  # For downloaded Instagram images
     
     # Parse command line arguments
     import argparse

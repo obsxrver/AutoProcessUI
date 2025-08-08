@@ -18,7 +18,6 @@ PIP_PACKAGES=(
     "Flask-SocketIO>=5.3.0"
     "python-socketio>=5.8.0"
     "Werkzeug>=2.3.0"
-    "gradio==3.41.2"
     "aiohttp>=3.8.0"
     "requests"
     "pandas"
@@ -28,12 +27,10 @@ PIP_PACKAGES=(
     "httpx==0.23.3"
     "httpcore==0.15.0"
     "instaloader"
-    # Additional packages for workflow-with-cnet.json compatibility
-    "opencv-python-headless>=4.8.0"  # For ControlNet aux preprocessors
     "mediapipe>=0.10.0"  # For pose detection
     "transformers>=4.25.0"  # For various AI models
-    "timm>=0.6.12"  # For vision transformers
-    "addict>=2.4.0"  # For configuration handling
+    "timm>=0.6.12"
+    "addict>=2.4.0"
 )
 
 NODES=(
@@ -118,20 +115,7 @@ function provisioning_start() {
     cd ${COMFYUI_DIR}/models
     
     # SAM2 models
-    mkdir -p sam2
-    cd sam2
-    if [ ! -f "sam2_1_hiera_large.pt" ]; then
-        wget -c https://huggingface.co/Kijai/sam2-safetensors/resolve/main/sam2_hiera_large.safetensors -O sam2_1_hiera_large.pt
-    fi
-    
-    # GroundingDINO models
-    cd ${COMFYUI_DIR}/models
-    mkdir -p grounding-dino
-    cd grounding-dino
-    if [ ! -f "GroundingDINO_SwinB.pth" ]; then
-        wget -c https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swinb_cogcoor.pth -O GroundingDINO_SwinB.pth
-        wget -c https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swint_ogc.pth -O GroundingDINO_SwinT_OGC.pth
-    fi
+    # meh the node allegedly handles this for us. lets skip downlaoding so as to not get wrong ones
     
     # Inpaint models
     cd ${COMFYUI_DIR}/models
@@ -165,7 +149,7 @@ function provisioning_start() {
     cd ${COMFYUI_DIR}/models/controlnet
     mkdir -p controlnet-depth-sdxl-1.0
     cd controlnet-depth-sdxl-1.0
-    if [ ! -f "diffusion_pytorch_model.fp16.bin" ]; then
+    if [ ! -f "diffusion_pytorch_model.bin" ]; then
         wget -c https://huggingface.co/diffusers/controlnet-depth-sdxl-1.0/resolve/main/diffusion_pytorch_model.bin
     fi
     
