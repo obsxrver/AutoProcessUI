@@ -50,7 +50,6 @@ WORKFLOWS=(
 
 CHECKPOINT_MODELS=(
     "https://civitai.com/api/download/models/1759168"
-    "https://civitai.com/api/download/models/1522905"
 )
 
 UNET_MODELS=(
@@ -132,28 +131,6 @@ function provisioning_start() {
     if [ ! -f "juggernaut-ragnarok.safetensors" ]; then
         wget -c https://civitai.com/api/download/models/1759168 -O juggernaut-ragnarok.safetensors
     fi
-    
-    # ControlNet models (required for workflow-with-cnet.json)
-    cd ${COMFYUI_DIR}/models
-    mkdir -p controlnet
-    cd controlnet
-    
-    # OpenPose ControlNet for SDXL
-    mkdir -p controlnet-openpose-sdxl-1.0
-    cd controlnet-openpose-sdxl-1.0
-    if [ ! -f "diffusion_pytorch_model.bin" ]; then
-        wget -c https://huggingface.co/thibaud/controlnet-openpose-sdxl-1.0/resolve/main/diffusion_pytorch_model.bin
-    fi
-    
-    # Depth ControlNet for SDXL
-    cd ${COMFYUI_DIR}/models/controlnet
-    mkdir -p controlnet-depth-sdxl-1.0
-    cd controlnet-depth-sdxl-1.0
-    if [ ! -f "diffusion_pytorch_model.bin" ]; then
-        wget -c https://huggingface.co/diffusers/controlnet-depth-sdxl-1.0/resolve/main/diffusion_pytorch_model.bin
-    fi
-    
-    
     # Install pip packages
     provisioning_get_pip_packages
     
